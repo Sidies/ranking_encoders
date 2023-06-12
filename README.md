@@ -6,10 +6,7 @@
 - [Installation](#installation)
 - [Project Organization](#project-organization)
 - [Usage](#usage)
-- [Data Sources](#data-sources)
-- [Technologies Used](#technologies-used)
 - [License](#license)
-- [Contact](#contact)
 
 ## Project Description
 Welcome to our project repository! We are a group of dedicated students from the Karlsruhe Institute of Technology, utilizing our data science skills to tackle real-world, high-impact problems as part of our Data Science Lab course at KIT. This project is focused on the exploration of meta-learning for the task of encoder selection.
