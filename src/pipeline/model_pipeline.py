@@ -15,7 +15,7 @@ class ModelPipeline:
     """
     _run_count:int = 0
     
-    def __init__(self, x_train_df, y_train_df, steps=None, verbose_level=0, evaluation:str="basic", param_grid=[]):
+    def __init__(self, x_train_df, y_train_df, steps=[], verbose_level=0, evaluation:str="basic", param_grid=[]):
         """
         Initialize the data pipeline
 
@@ -41,41 +41,7 @@ class ModelPipeline:
         self._evaluation = evaluation
         self._verbose_level = verbose_level
         self._param_grid = param_grid
-        
-    def get_pipeline_step_decorator(self):
-        """
-        Decorator to add a step to the pipeline
-        """
-        def _step_decorator(transformer):
-            def _wrapper(name:str, position:int=None, *args, **kwargs):
-                """
-                Wrapper function to add a step to the pipeline
-                
-                Parameters
-                ----------
-                name: str
-                    The name of the step
-                position: int
-                    The position in the pipeline where the step should be added.
-                    If None, the step is added to the end of the pipeline.
-                """
-                step = (name, transformer(*args, **kwargs))
-                if self._pipeline is None:
-                    self._pipeline = Pipeline([step])
-                elif self._pipeline.steps is None:
-                    self._pipeline.steps = [step]
-                else:
-                    steps = list(self._pipeline.steps)
-                    if position is not None and -len(steps) <= position <= len(steps):
-                        steps.insert(position, step)
-                    else:
-                        steps.append(step)
-                    steps.append(step)
-                    self._pipeline = Pipeline(steps)
-                return self._pipeline
-            return _wrapper
-        return _step_decorator
-    
+            
     
     # start the pipeline
     def run(self):
@@ -109,7 +75,8 @@ class ModelPipeline:
             )
             
         elif self._evaluation == "grid_search":
-            validation_performance_scores = self._do_grid_search(param_grid=self._param_grid, scoring=performance_metrics)
+            metric = list(performance_metrics.keys())[0]            
+            validation_performance_scores = self._do_grid_search(param_grid=self._param_grid, scoring=metric)
             
         else:
             raise Exception(f"Unknown evaluation type: {self._evaluation}")
@@ -130,8 +97,7 @@ class ModelPipeline:
                                 + np.array2string(np.mean(values), precision=4) + ' [std=' \
                                 + np.array2string(np.std(values), precision=4) + ']'
                     print("    " + output)
-
-        
+      
         
     # get the pipeline
     def get_pipeline(self):
@@ -155,6 +121,103 @@ class ModelPipeline:
             raise Exception('The pipeline is not initialized yet. Please run the pipeline first.')
         
         return self._pipeline.predict(df)
+
+
+    def add_new_step(self, transformer, name):
+        """
+        Adds a new step to the pipeline before the 'estimator' step, if it
+        exists. If the name is already present, the corresponding
+        transformer will be replaced.
+
+        Args:
+            transformer (transformer): the transformer to be added
+            name (string): name of the step
+        """
+        # initialize new pipeline if empty
+        if len(self._pipeline.steps) == 0:
+            self._create_pipeline([(name, transformer)])
+            return
+
+        # insert step before estimator or replace if step already exists
+        insertion_index = len(self._pipeline.steps)  # insert at end of list by default
+        pip_steps = self._pipeline.steps
+        for i, (step_name, _) in enumerate(self._pipeline.steps):
+            if step_name == 'estimator':
+                insertion_index = i                
+                break
+            if step_name == name:
+                pip_steps[i] = (name, transformer)  # replace the step
+                self._create_pipeline(steps=pip_steps)
+                return # no need to insert if step already exists
+        pip_steps.insert(insertion_index, (name, transformer)) 
+        self._create_pipeline(steps=pip_steps)
+                
+                
+    def add_new_step_at_position(self, transformer, name, position: int):
+        """
+        Adds a new step to the pipeline at a specific position. If the name is already present, the corresponding
+        transformer will be replaced. If the position is out of bounds, the step will be appended to the end of the
+        pipeline.
+
+        Args:
+            transformer (transformer): the transformer to be added
+            name (string): name of the step
+            position (int): position in the pipeline
+        """
+        # initialize steps if empty
+        if len(self._pipeline.steps) == 0:
+            self._create_pipeline(steps=[(name, transformer)])
+            return
+
+        # replace if step already exists
+        pip_steps = self._pipeline.steps
+        for i, (step_name, _) in enumerate(pip_steps):
+            if step_name == name:
+                pip_steps[i] = (name, transformer)
+                self._create_pipeline(steps=pip_steps)
+                return
+
+        # if name not found, insert or append step
+        if position >= len(pip_steps):
+            pip_steps.append((name, transformer))
+        else:
+            pip_steps.insert(position, (name, transformer))
+        self._create_pipeline(steps=pip_steps)
+
+
+    def remove_step(self, name:str):
+        """Removes a specific step from the pipeline
+
+        Args:
+            name (string): the name of the step to remove
+        """
+        pip_steps = self._pipeline.steps
+        for i, (step_name, _) in enumerate(pip_steps):
+            if step_name == name:
+                pip_steps.pop(i)
+                break
+        self._create_pipeline(steps=pip_steps)
+
+
+    def change_estimator(self, new_estimator):
+        """Changes the current estimator of the pipeline to a different one. 
+        If no estimator is defined a new one will be added.
+
+        Args:
+            new_estimator (model): the new model that should be applied
+        """
+        # Check if there is an 'estimator' step already defined
+        pip_steps = self._pipeline.steps
+        for i, step in enumerate(pip_steps):
+            if step[0] == 'estimator':
+                # Replace the estimator
+                pip_steps[i] = ('estimator', new_estimator)
+                break
+        # the else is executed if the for loop is not broken
+        else: 
+            # If no 'estimator' step was found, add one
+            pip_steps.append(('estimator', new_estimator))
+        self._create_pipeline(steps=pip_steps)
 
 
     def save(self, path):
@@ -202,6 +265,9 @@ class ModelPipeline:
         predictions = self._pipeline.predict(prediction_df)
         pd.DataFrame(predictions).to_csv(path, index=False)
 
+    def _create_pipeline(self, steps):
+        self._run_count = 0
+        self._pipeline = Pipeline(steps=steps)
 
     def _is_initialized(self):
         """
