@@ -3,13 +3,15 @@ from src.pipeline.model_pipeline import ModelPipeline
 from sklearn.pipeline import Pipeline
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.dummy import DummyClassifier
+from sklearn.dummy import DummyRegressor
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.compose import ColumnTransformer
 from sklearn.feature_extraction.text import TfidfTransformer
 from enum import Enum
 
 class ModelType(Enum):
-    BASELINE = 'Baseline'
+    REGRE_BASELINE = 1
+    CLASS_BASELINE = 2
     
 
 class PipelineFactory:
@@ -34,10 +36,15 @@ class PipelineFactory:
         Returns:
             ModelPipeline: The created ModelPipeline
         """
-        if model_type == ModelType.BASELINE:
+        if model_type == ModelType.REGRE_BASELINE:
             pipeline_steps = [
-                ("estimator", DummyClassifier(strategy="most_frequent"))    
+                ("estimator", DummyRegressor(strategy="mean"))    
             ]   
+            
+        if model_type == ModelType.CLASS_BASELINE:
+            pipeline_steps = [
+                ("estimator", DummyClassifier(strategy="most_frequent"))
+            ]
             
         else:
             raise ValueError(f"Unknown model type: {model_type}")            

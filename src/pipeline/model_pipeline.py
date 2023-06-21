@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import enum
 from joblib import dump, load
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
@@ -7,6 +8,9 @@ from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef, make_sc
 from sklearn.model_selection import cross_validate, train_test_split
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import r2_score
+from sklearn.base import is_classifier, is_regressor
+from src.pipeline.evaluation import evaluate_regression
 
 
 class ModelPipeline:
@@ -15,7 +19,14 @@ class ModelPipeline:
     """
     _run_count:int = 0
     
-    def __init__(self, x_train_df, y_train_df, steps=[], verbose_level=0, evaluation:str="basic", param_grid=[]):
+    def __init__(self, 
+                 df:pd.DataFrame,
+                 target="cv_score",
+                 steps=[], 
+                 verbose_level=0, 
+                 evaluation:str="basic",                  
+                 split_factors=["dataset", "model", "tuning", "scoring"],
+                 param_grid=[]):
         """
         Initialize the data pipeline
 
@@ -36,10 +47,11 @@ class ModelPipeline:
             The parameter grid to use for grid search. Only used if evaluation is "grid_search"
         """        
         self._pipeline = Pipeline(steps=steps)        
-        self._x_train_df = x_train_df
-        self._y_train_df = y_train_df
+        self._df = df
+        self._target = target
         self._evaluation = evaluation
         self._verbose_level = verbose_level
+        self._split_factors = split_factors
         self._param_grid = param_grid
             
     
@@ -49,34 +61,59 @@ class ModelPipeline:
         print(f"Starting pipeline using method: {self._evaluation}") if self._verbose_level > 0 else None
         
         validation_performance_scores = {}
-        performance_metrics = {
-                'mcc': make_scorer(matthews_corrcoef),
-                'accuracy': 'accuracy',
-                'f1-score': 'f1_macro',
-                
-            }        
+        
+        performance_metrics = {}
+        is_regression = False
+        if is_regressor(self._pipeline.named_steps['estimator']):
+            is_regression = True
+        elif is_classifier(self._pipeline.named_steps['estimator']):
+            performance_metrics = {
+                    'mcc': make_scorer(matthews_corrcoef),
+                    'accuracy': 'accuracy',
+                    'f1-score': 'f1_macro'                
+                }      
+          
         if self._evaluation == "basic":
             # split the data into training and validation data
-            self.x_train_df, self.x_test_df, self.y_train_df, self.y_test_df = train_test_split(self._x_train_df, self._y_train_df, test_size=0.2, random_state=42)
-            self._pipeline.fit(self._x_train_df, self._y_train_df)
-            y_pred = self._pipeline.predict(self.x_test_df)
-            validation_performance_scores['validation_accuracy'] = [accuracy_score(self.y_test_df, y_pred)]
-            validation_performance_scores['validation_f1-score'] = [f1_score(self.y_test_df, y_pred, average='macro')]
-            validation_performance_scores['validation_mcc'] = [matthews_corrcoef(self.y_test_df, y_pred)]
+            
+            if self._split_factors == []:
+                X_train, y_train = self._split_target(self._df, self._target)
+                X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=0.2, random_state=42)
+            else:              
+                X_train, X_test, y_train, y_test = evaluate_regression.custom_train_test_split(self._df, self._split_factors, self._target, train_size=0.75, random_state=42)
+            
+            if not is_regression:
+                self._pipeline.fit(X_train, y_train)
+                y_pred = self._pipeline.predict(X_test)
+                validation_performance_scores['validation_accuracy'] = [accuracy_score(y_test, y_pred)]
+                validation_performance_scores['validation_f1-score'] = [f1_score(y_test, y_pred, average='macro')]
+                validation_performance_scores['validation_mcc'] = [matthews_corrcoef(y_test, y_pred)]
+                
+            elif is_regression:
+                new_index = "encoder"
+                y_pred = pd.Series(self._pipeline.fit(X_train, y_train).predict(X_test), index=y_test.index, name="cv_score_pred")
+                df_pred = pd.concat([X_test, y_test, y_pred], axis=1)
+                # ---- convert to rankings and evaluate
+                rankings_test = evaluate_regression.get_rankings(df_pred, factors=self._split_factors, new_index=new_index, target="cv_score")
+                rankings_pred = evaluate_regression.get_rankings(df_pred, factors=self._split_factors, new_index=new_index, target="cv_score_pred")
+                print(evaluate_regression.average_spearman(rankings_test, rankings_pred))
+                
             
         elif self._evaluation == "cross_validation":
-            self._pipeline.fit(self._x_train_df, self._y_train_df)
+            X_train, y_train = self._split_target(self._df, self._target)
+            self._pipeline.fit(X_train, y_train)
             validation_performance_scores = cross_validate(
                 self._pipeline,
-                self._x_train_df,
-                self._y_train_df,
+                X_train,
+                y_train,
                 scoring=performance_metrics,
                 cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
             )
             
         elif self._evaluation == "grid_search":
-            metric = list(performance_metrics.keys())[0]            
-            validation_performance_scores = self._do_grid_search(param_grid=self._param_grid, scoring=metric)
+            metric = list(performance_metrics.keys())[0]        
+            X_train, y_train = self._split_target(self._df, self._target)    
+            validation_performance_scores = self._do_grid_search(X_train, y_train, param_grid=self._param_grid, scoring=metric)
             
         else:
             raise Exception(f"Unknown evaluation type: {self._evaluation}")
@@ -84,7 +121,7 @@ class ModelPipeline:
         print("Finished running the pipeline") if self._verbose_level > 0 else None       
         self._run_count += 1    
         
-        if self._verbose_level > 0:            
+        if self._verbose_level > 0 and validation_performance_scores != {}:            
             print("Evaluation metrics:") 
             # print the evaluation metrics
             if self._evaluation == "grid_search":
@@ -247,24 +284,6 @@ class ModelPipeline:
         self._pipeline = load(path)
         
 
-    # Save predictions to CSV
-    def save_predictions(self, prediction_df, path):
-        """
-        Save predictions to a CSV file
-        
-        Parameters
-        ----------
-        prediction_df: pandas.DataFrame
-            The data to be predicted
-        path: str
-            The path to the CSV file the predictions should be saved to
-        """
-        if not self._is_initialized():
-            raise Exception('The pipeline is not initialized yet. Please run the pipeline first.')
-        
-        predictions = self._pipeline.predict(prediction_df)
-        pd.DataFrame(predictions).to_csv(path, index=False)
-
     def _create_pipeline(self, steps):
         self._run_count = 0
         self._pipeline = Pipeline(steps=steps)
@@ -280,7 +299,7 @@ class ModelPipeline:
             
         return is_initialized
     
-    def _do_grid_search(self, param_grid, scoring='accuracy', cv=5, n_jobs=-1):
+    def _do_grid_search(self, X_train:pd.DataFrame, y_train, param_grid, scoring='accuracy', cv=5, n_jobs=-1):
         """
         Perform grid search on the pipeline
         
@@ -305,7 +324,7 @@ class ModelPipeline:
             refit_value = scoring        
         
         grid_search = GridSearchCV(self._pipeline, param_grid, scoring=scoring, cv=cv, n_jobs=n_jobs, refit=refit_value, verbose=self._verbose_level)
-        grid_search.fit(self._x_train_df, self._y_train_df)
+        grid_search.fit(X_train, y_train)
         self._pipeline = grid_search.best_estimator_
         
         print("Finished performing grid search") if self._verbose_level > 0 else None
@@ -330,3 +349,20 @@ class ModelPipeline:
         validation_performance_scores = dict(sorted(validation_performance_scores.items()))
         
         return validation_performance_scores
+    
+    
+    def _split_target(self, df, target):
+        """
+        Split the target from the dataframe
+        
+        Parameters
+        ----------
+        df: pandas.DataFrame
+            The dataframe to split the target from
+        target: str
+            The name of the target column
+        """
+        X_train = df.drop(target, axis=1)
+        y_train = df[target]
+        
+        return X_train, y_train

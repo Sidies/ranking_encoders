@@ -10,16 +10,16 @@ from sklearn.linear_model import LinearRegression
 from src.pipeline.model_pipeline import ModelPipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
+from sklearn.dummy import DummyRegressor
 
 class TestModelPipeline(unittest.TestCase):
     
-    def setUp(self):
+    def setUp_classification(self):
         """
         The setUp method is run before each test
         """
-        x_train = pd.DataFrame({'x': [1, 2, 3], 'y': [4, 5, 6]})
-        y_train = pd.DataFrame({'z': [7, 8, 9]})
-        self.pipeline = ModelPipeline(x_train, y_train)
+        df = pd.DataFrame({'x': [1, 2, 3], 'y': [4, 5, 6], 'z': [7, 8, 9]})
+        self.pipeline = ModelPipeline(df, split_factors=[], target="z", evaluation="basic")
         
         '''@self.pipeline.get_pipeline_step_decorator()
         def my_transformer(*args, **kwargs):
@@ -31,26 +31,15 @@ class TestModelPipeline(unittest.TestCase):
         self.pipeline.run()
         
         
-    def test_pipeline(self):               
+    def test_pipeline(self):          
+        self.setUp_classification()     
         # check that the pipeline has been created by checking that the
         # pipeline has a LinearRegression step
         self.assertTrue('estimator' in self.pipeline.get_pipeline().named_steps)
         
         
-    def test_save_predictions(self):
-        # create a dataframe that contains data to be predicted
-        test_df = pd.DataFrame({'x': [1, 2, 3], 'y': [4, 5, 6]})
-        project_dir = config.ROOT_DIR
-     
-        # set the path to the test predictions CSV
-        path = os.path.join(project_dir, 'data/testing/test_predictions.csv')
-        self.pipeline.save_predictions(test_df, path)
-        
-        # check that the csv exists
-        self.assertTrue(os.path.exists(path))
-        
-        
     def test_add_new_step(self):
+        self.setUp_classification()
         self.pipeline.add_new_step(StandardScaler(), "scaler")
         
         # test if step has been added
@@ -65,6 +54,22 @@ class TestModelPipeline(unittest.TestCase):
         # now remove a step and check if it has been removed
         self.pipeline.remove_step("imputer")
         self.assertFalse('imputer' in self.pipeline.get_pipeline().named_steps)
+        
+        
+    def test_regression_pipeline(self):
+        """
+        The setUp method is run before each test
+        """
+        df = config.load_traindata_for_regression()
+        self.pipeline = ModelPipeline(df, evaluation="basic")
+        
+        '''@self.pipeline.get_pipeline_step_decorator()
+        def my_transformer(*args, **kwargs):
+            return LinearRegression(*args, **kwargs)
+
+        my_transformer(name="linearregression", position=None)'''
+        self.pipeline.change_estimator(DummyRegressor())
+        self.pipeline.run()
         
         
 if __name__ == '__main__':
