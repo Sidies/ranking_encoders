@@ -103,23 +103,10 @@ def list_spearman(rf1: pd.DataFrame, rf2: pd.DataFrame) -> np.array:
     if not rf1.columns.equals(rf2.columns) or not rf1.index.equals(rf2.index):
         raise ValueError("The two input dataframes should have the same index and columns.")
 
-    print(rf1.shape)
-    print(rf2.shape)
-    print(rf1.columns)
-    print(rf2.columns)
-    print(rf1.index)
-    print(rf2.index)
     return np.array([
-        spearman_rho(r1, r2, nan_policy="omit") for (_, r1), (_, r2) in zip(rf1.iteritems(), rf2.iteritems())
+        spearman_rho(r1, r2, nan_policy="omit") for (_, r1), (_, r2) in zip(rf1.items(), rf2.items())
     ])
 
 
 def average_spearman(rf1: pd.DataFrame, rf2: pd.DataFrame) -> np.array:
     return np.nanmean(list_spearman(rf1, rf2))
-
-
-
-
-
-
-
