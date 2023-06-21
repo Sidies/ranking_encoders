@@ -1,5 +1,5 @@
 import pandas as pd
-from src.pipeline.model_pipeline import ModelPipeline
+from src.pipeline.model_pipeline import ModelPipeline, EvaluationType
 from sklearn.pipeline import Pipeline
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.dummy import DummyClassifier
@@ -10,15 +10,15 @@ from sklearn.feature_extraction.text import TfidfTransformer
 from enum import Enum
 
 class ModelType(Enum):
-    REGRE_BASELINE = 1
-    CLASS_BASELINE = 2
-    
+    REGRE_BASELINE = "regre_baseline"
+    CLASS_BASELINE = "class_baseline"
+     
 
 class PipelineFactory:
     """
     Class that creates ModelPipelines
     """
-    def create_pipeline(self, x_train_df:pd.DataFrame, y_train_df, model_type:ModelType, **kwargs):
+    def create_pipeline(self, x_train:pd.DataFrame, model_type:ModelType, **kwargs):
         """
         Create a ModelPipeline of the specified type.
 
@@ -41,7 +41,7 @@ class PipelineFactory:
                 ("estimator", DummyRegressor(strategy="mean"))    
             ]   
             
-        if model_type == ModelType.CLASS_BASELINE:
+        elif model_type == ModelType.CLASS_BASELINE:
             pipeline_steps = [
                 ("estimator", DummyClassifier(strategy="most_frequent"))
             ]
@@ -50,9 +50,6 @@ class PipelineFactory:
             raise ValueError(f"Unknown model type: {model_type}")            
             
         # create the new pipeline and return it
-        return ModelPipeline(x_train_df, 
-                             y_train_df, 
+        return ModelPipeline(x_train, 
                              steps=pipeline_steps, 
                              **kwargs)
-
-        

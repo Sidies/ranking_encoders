@@ -12,6 +12,10 @@ from sklearn.metrics import r2_score
 from sklearn.base import is_classifier, is_regressor
 from src.pipeline.evaluation import evaluate_regression
 
+class EvaluationType(enum.Enum):
+    BASIC = "basic"
+    CROSS_VALIDATION = "cross_validation"
+    GRID_SEARCH = "grid_search"
 
 class ModelPipeline:
     """
@@ -24,7 +28,7 @@ class ModelPipeline:
                  target="cv_score",
                  steps=[], 
                  verbose_level=0, 
-                 evaluation:str="basic",                  
+                 evaluation:EvaluationType=EvaluationType.BASIC,                  
                  split_factors=["dataset", "model", "tuning", "scoring"],
                  param_grid=[]):
         """
@@ -32,17 +36,19 @@ class ModelPipeline:
 
         Parameters
         ----------
-        x_train_df: pandas.DataFrame
-            The training data
-        y_train_df: pandas.DataFrame
-            The training labels
+        df: pd.DataFrame
+            The dataframe to use for the pipeline
+        target: str
+            The target column name
         steps: list of tuples 
             The tuples should be of the form (name, transformer) 
         verbose_level: int
             The verbosity level
-        evaluation: str
+        evaluation: EvaluationType
             The type of evaluation to perform.
             Can be one of "basic", "cross_validation", "grid_search"
+        split_factors: list of str
+            The factors to use for splitting the data into training and validation data
         param_grid: dict
             The parameter grid to use for grid search. Only used if evaluation is "grid_search"
         """        
@@ -73,7 +79,7 @@ class ModelPipeline:
                     'f1-score': 'f1_macro'                
                 }      
           
-        if self._evaluation == "basic":
+        if self._evaluation == EvaluationType.BASIC:
             # split the data into training and validation data
             
             if self._split_factors == []:
@@ -99,7 +105,7 @@ class ModelPipeline:
                 print(evaluate_regression.average_spearman(rankings_test, rankings_pred))
                 
             
-        elif self._evaluation == "cross_validation":
+        elif self._evaluation == EvaluationType.CROSS_VALIDATION:
             X_train, y_train = self._split_target(self._df, self._target)
             self._pipeline.fit(X_train, y_train)
             validation_performance_scores = cross_validate(
@@ -110,7 +116,7 @@ class ModelPipeline:
                 cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
             )
             
-        elif self._evaluation == "grid_search":
+        elif self._evaluation == EvaluationType.GRID_SEARCH:
             metric = list(performance_metrics.keys())[0]        
             X_train, y_train = self._split_target(self._df, self._target)    
             validation_performance_scores = self._do_grid_search(X_train, y_train, param_grid=self._param_grid, scoring=metric)

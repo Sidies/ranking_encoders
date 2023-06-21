@@ -7,10 +7,10 @@ import unittest
 import pandas as pd
 from src import configuration as config
 from sklearn.linear_model import LinearRegression
-from src.pipeline.model_pipeline import ModelPipeline
+from src.pipeline.model_pipeline import ModelPipeline, EvaluationType
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
-from sklearn.dummy import DummyRegressor
+from sklearn.dummy import DummyRegressor, DummyClassifier
 
 class TestModelPipeline(unittest.TestCase):
     
@@ -19,7 +19,7 @@ class TestModelPipeline(unittest.TestCase):
         The setUp method is run before each test
         """
         df = pd.DataFrame({'x': [1, 2, 3], 'y': [4, 5, 6], 'z': [7, 8, 9]})
-        self.pipeline = ModelPipeline(df, split_factors=[], target="z", evaluation="basic")
+        self.pipeline = ModelPipeline(df, split_factors=[], target="z", evaluation=EvaluationType.BASIC)
         
         '''@self.pipeline.get_pipeline_step_decorator()
         def my_transformer(*args, **kwargs):
@@ -27,7 +27,7 @@ class TestModelPipeline(unittest.TestCase):
 
         my_transformer(name="linearregression", position=None)'''
         
-        self.pipeline.change_estimator(LinearRegression())        
+        self.pipeline.change_estimator(DummyClassifier())        
         self.pipeline.run()
         
         
@@ -61,7 +61,7 @@ class TestModelPipeline(unittest.TestCase):
         The setUp method is run before each test
         """
         df = config.load_traindata_for_regression()
-        self.pipeline = ModelPipeline(df, evaluation="basic")
+        self.pipeline = ModelPipeline(df, evaluation=EvaluationType.BASIC)
         
         '''@self.pipeline.get_pipeline_step_decorator()
         def my_transformer(*args, **kwargs):
