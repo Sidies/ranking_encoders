@@ -72,4 +72,3 @@ class ColumnDropper(BaseEstimator, TransformerMixin):
         # assuming X is a DataFrame
         return X.drop(self.cols_to_drop, axis=1)
     
-class OneHotEncoder
