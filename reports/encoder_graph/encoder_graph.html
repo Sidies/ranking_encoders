@@ -1,0 +1,155 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 1000px;
+                 height: 1000px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": "#97c2fc", "id": "BE", "label": "BE", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "identifier", "label": "identifier", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "OE", "label": "OE", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "OHE", "label": "OHE", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "unsupervised", "label": "unsupervised", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "BUCV10RGLMME", "label": "BUCV10RGLMME", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "bucvglmm", "label": "bucvglmm", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "BUCV2RGLMME", "label": "BUCV2RGLMME", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "BUCV5RGLMME", "label": "BUCV5RGLMME", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "glmm", "label": "glmm", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "BUCV10TE", "label": "BUCV10TE", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "bucvte", "label": "bucvte", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "BUCV2TE", "label": "BUCV2TE", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "BUCV5TE", "label": "BUCV5TE", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "te", "label": "te", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "CBE", "label": "CBE", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "supervised", "label": "supervised", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "WOEE", "label": "WOEE", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "dte", "label": "dte", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "encoder", "label": "encoder", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "mee", "label": "mee", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "pbte", "label": "pbte", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "CE", "label": "CE", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "DE", "label": "DE", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "MHE", "label": "MHE", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "SE", "label": "SE", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "CV10RGLMME", "label": "CV10RGLMME", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "cvglmm", "label": "cvglmm", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "CV2RGLMME", "label": "CV2RGLMME", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "CV5RGLMME", "label": "CV5RGLMME", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "CV10TE", "label": "CV10TE", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "cvte", "label": "cvte", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "CV2TE", "label": "CV2TE", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "CV5TE", "label": "CV5TE", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "DTEM10", "label": "DTEM10", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "DTEM2", "label": "DTEM2", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "DTEM5", "label": "DTEM5", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "ME01E", "label": "ME01E", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "ME10E", "label": "ME10E", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "ME1E", "label": "ME1E", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "PBTE0001", "label": "PBTE0001", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "PBTE001", "label": "PBTE001", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "PBTE01", "label": "PBTE01", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "RGLMME", "label": "RGLMME", "shape": "dot", "size": 10}, {"color": "#97c2fc", "id": "TE", "label": "TE", "shape": "dot", "size": 10}]);
+                  edges = new vis.DataSet([{"from": "BE", "to": "identifier", "width": 1}, {"from": "identifier", "to": "OE", "width": 1}, {"from": "identifier", "to": "OHE", "width": 1}, {"from": "identifier", "to": "unsupervised", "width": 1}, {"from": "BUCV10RGLMME", "to": "bucvglmm", "width": 1}, {"from": "bucvglmm", "to": "BUCV2RGLMME", "width": 1}, {"from": "bucvglmm", "to": "BUCV5RGLMME", "width": 1}, {"from": "bucvglmm", "to": "glmm", "width": 1}, {"from": "BUCV10TE", "to": "bucvte", "width": 1}, {"from": "bucvte", "to": "BUCV2TE", "width": 1}, {"from": "bucvte", "to": "BUCV5TE", "width": 1}, {"from": "bucvte", "to": "te", "width": 1}, {"from": "CBE", "to": "supervised", "width": 1}, {"from": "supervised", "to": "WOEE", "width": 1}, {"from": "supervised", "to": "te", "width": 1}, {"from": "supervised", "to": "dte", "width": 1}, {"from": "supervised", "to": "encoder", "width": 1}, {"from": "supervised", "to": "glmm", "width": 1}, {"from": "supervised", "to": "mee", "width": 1}, {"from": "supervised", "to": "pbte", "width": 1}, {"from": "CE", "to": "unsupervised", "width": 1}, {"from": "unsupervised", "to": "DE", "width": 1}, {"from": "unsupervised", "to": "MHE", "width": 1}, {"from": "unsupervised", "to": "SE", "width": 1}, {"from": "unsupervised", "to": "encoder", "width": 1}, {"from": "CV10RGLMME", "to": "cvglmm", "width": 1}, {"from": "cvglmm", "to": "CV2RGLMME", "width": 1}, {"from": "cvglmm", "to": "CV5RGLMME", "width": 1}, {"from": "cvglmm", "to": "glmm", "width": 1}, {"from": "CV10TE", "to": "cvte", "width": 1}, {"from": "cvte", "to": "CV2TE", "width": 1}, {"from": "cvte", "to": "CV5TE", "width": 1}, {"from": "cvte", "to": "te", "width": 1}, {"from": "DTEM10", "to": "dte", "width": 1}, {"from": "dte", "to": "DTEM2", "width": 1}, {"from": "dte", "to": "DTEM5", "width": 1}, {"from": "ME01E", "to": "mee", "width": 1}, {"from": "mee", "to": "ME10E", "width": 1}, {"from": "mee", "to": "ME1E", "width": 1}, {"from": "PBTE0001", "to": "pbte", "width": 1}, {"from": "pbte", "to": "PBTE001", "width": 1}, {"from": "pbte", "to": "PBTE01", "width": 1}, {"from": "RGLMME", "to": "glmm", "width": 1}, {"from": "TE", "to": "te", "width": 1}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {
+    "configure": {
+        "enabled": false
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": true,
+            "type": "dynamic"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>

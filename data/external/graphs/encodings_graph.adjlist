@@ -1,0 +1,45 @@
+BE identifier
+BUCV10RGLMME bucvglmm
+BUCV10TE bucvte
+BUCV2RGLMME bucvglmm
+BUCV2TE bucvte
+BUCV5RGLMME bucvglmm
+BUCV5TE bucvte
+CBE supervised
+CE unsupervised
+CV10RGLMME cvglmm
+CV10TE cvte
+CV2RGLMME cvglmm
+CV2TE cvte
+CV5RGLMME cvglmm
+CV5TE cvte
+DE unsupervised
+DTEM10 dte
+DTEM2 dte
+DTEM5 dte
+ME01E mee
+ME10E mee
+ME1E mee
+MHE unsupervised
+OE identifier
+OHE identifier
+PBTE0001 pbte
+PBTE001 pbte
+PBTE01 pbte
+RGLMME glmm
+SE unsupervised
+TE te
+WOEE supervised
+cvglmm glmm
+te supervised bucvte cvte
+dte supervised
+supervised encoder glmm mee pbte
+bucvglmm glmm
+glmm
+pbte
+mee
+identifier unsupervised
+cvte
+bucvte
+encoder unsupervised
+unsupervised

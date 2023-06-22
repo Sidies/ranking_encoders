@@ -36,12 +36,12 @@ class PipelineFactory:
         Returns:
             ModelPipeline: The created ModelPipeline
         """
-        if model_type == ModelType.REGRE_BASELINE:
+        if model_type == "regre_baseline" or model_type == ModelType.REGRE_BASELINE:
             pipeline_steps = [
                 ("estimator", DummyRegressor(strategy="mean"))    
             ]   
             
-        elif model_type == ModelType.CLASS_BASELINE:
+        elif model_type == "class_baseline" or model_type == ModelType.CLASS_BASELINE:
             pipeline_steps = [
                 ("estimator", DummyClassifier(strategy="most_frequent"))
             ]

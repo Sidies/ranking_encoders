@@ -14,8 +14,10 @@ def ignore_warnings():
     warnings.filterwarnings("ignore")
 
 
-# Static variable that contains the root directory of the project
+# Static variables that contain paths to directories
 ROOT_DIR = Path(__file__).parent.parent
+DATA_DIR = ROOT_DIR / "data/raw"
+FIGURE_DIR = ROOT_DIR / "reports/figures"
 
 
 def print_divider_line():
