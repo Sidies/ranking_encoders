@@ -122,12 +122,17 @@ pip install -r requirements.txt
 <p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
 
 ## Usage
+For running the pipeline of this project you first have to make sure that the dataset you want to use is in the required 'data/raw' folder. By default a dataset named 'dataset_train.csv' is expected. If you want to use a different dataset, you have to --dataset parameter when running the pipeline.
 
-To run the project, open a terminal and navigate to the project directory. Then run the following command: 
+Open a terminal and navigate to the project directory and run the following command: 
 ```
 py main.py
 ```
-The project will start running and display output in your command line.
+The project will start running and display output in your command line. If you want to use a dataset different from the default use the following command:
+```
+py main.py --dataset [your_dataset_name]
+```
+Hint: replace `[your_dataset_name]` and don't forget to include the .csv ending
 
 ## License
 

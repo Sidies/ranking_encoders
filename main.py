@@ -1,26 +1,21 @@
 import pandas as pd
 import argparse
 from src import configuration as config
-from src.pipeline.model_pipeline import ModelPipeline
+from src.pipeline.model_pipeline import ModelPipeline, EvaluationType
 from src.pipeline.pipeline_factory import PipelineFactory, ModelType
 
 def main(args):
     
     # get the specific pipeline type
     pipeline_factory = PipelineFactory()
-
-    #x_train = pd.DataFrame({'x': [1, 2, 3, 4, 5, 6, 7], 'y': [4, 5, 6, 7, 8, 9, 10]})
-    #y_train = pd.DataFrame({'z': [1, 0, 1, 1, 0, 0, 1]})
+    dataset_path = config.ROOT_DIR / 'data/raw/' / args.dataset
     
-    x_train, y_train = config.load_traindata_for_regression()
-    
-    print(y_train.value_counts())
+    train_df = config.load_dataset(dataset_path)
 
-    pipeline = pipeline_factory.create_pipeline(x_train_df=x_train, 
-                                                y_train_df=y_train, 
+    pipeline = pipeline_factory.create_pipeline(train_df, 
                                                 model_type=args.pipeline_type,
                                                 verbose_level=1,
-                                                evaluation="basic")
+                                                evaluation=EvaluationType.BASIC)
     
     pipeline.run()
 
@@ -28,7 +23,8 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
-    parser.add_argument('--pipeline_type', type=ModelType, default=ModelType.BASELINE, help='Type of pipeline to run')
+    parser.add_argument('--pipeline_type', type=str, default='regre_baseline', help='Type of pipeline to run')
+    parser.add_argument('--dataset', type=str, default='dataset_train.csv', help='Dataset name to use for training')
     
     args = parser.parse_args()
 
