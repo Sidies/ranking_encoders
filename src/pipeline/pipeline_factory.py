@@ -18,7 +18,13 @@ class PipelineFactory:
     """
     Class that creates ModelPipelines
     """
-    def create_pipeline(self, x_train:pd.DataFrame, model_type:ModelType, **kwargs):
+    def create_pipeline(self, X_train:pd.DataFrame, 
+                        model_type:ModelType, 
+                        evaluation:EvaluationType=EvaluationType.BASIC, 
+                        y_train=None, 
+                        X_test=None, 
+                        verbose_level=0, 
+                        **kwargs):
         """
         Create a ModelPipeline of the specified type.
 
@@ -36,6 +42,10 @@ class PipelineFactory:
         Returns:
             ModelPipeline: The created ModelPipeline
         """
+        if y_train is not None:
+            # merge the X and y dataframes
+            X_train = pd.concat([X_train, y_train], axis=1)
+        
         if model_type == "regre_baseline" or model_type == ModelType.REGRE_BASELINE:
             pipeline_steps = [
                 ("estimator", DummyRegressor(strategy="mean"))    
@@ -50,6 +60,10 @@ class PipelineFactory:
             raise ValueError(f"Unknown model type: {model_type}")            
             
         # create the new pipeline and return it
-        return ModelPipeline(x_train, 
-                             steps=pipeline_steps, 
+        return ModelPipeline(X_train, 
+                             steps=pipeline_steps,
+                             evaluation=evaluation,
+                             X_test=X_test,
+                             verbose_level=verbose_level,
                              **kwargs)
+        

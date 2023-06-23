@@ -11,6 +11,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import r2_score
 from sklearn.base import is_classifier, is_regressor
 from src.pipeline.evaluation import evaluate_regression
+from src import configuration as config
 
 class EvaluationType(enum.Enum):
     BASIC = "basic"
@@ -25,10 +26,11 @@ class ModelPipeline:
     
     def __init__(self, 
                  df:pd.DataFrame,
-                 target="cv_score",
+                 target:str,
                  steps=[], 
                  verbose_level=0, 
-                 evaluation:EvaluationType=EvaluationType.BASIC,                  
+                 evaluation:EvaluationType=EvaluationType.BASIC,
+                 X_test:pd.DataFrame=None,                  
                  split_factors=["dataset", "model", "tuning", "scoring"],
                  param_grid=[]):
         """
@@ -57,6 +59,7 @@ class ModelPipeline:
         self._target = target
         self._evaluation = evaluation
         self._verbose_level = verbose_level
+        self.X_test = X_test
         self._split_factors = split_factors
         self._param_grid = param_grid
             
@@ -127,6 +130,7 @@ class ModelPipeline:
         print("Finished running the pipeline") if self._verbose_level > 0 else None       
         self._run_count += 1    
         
+        # print out the evaluation metrics
         if self._verbose_level > 0 and validation_performance_scores != {}:            
             print("Evaluation metrics:") 
             # print the evaluation metrics
@@ -140,6 +144,10 @@ class ModelPipeline:
                                 + np.array2string(np.mean(values), precision=4) + ' [std=' \
                                 + np.array2string(np.std(values), precision=4) + ']'
                     print("    " + output)
+                    
+        # save the predictions to a file if X_test is not None
+        if self.X_test is not None:
+            self.save_prediction(self.X_test)
       
         
     # get the pipeline
@@ -240,6 +248,16 @@ class ModelPipeline:
                 pip_steps.pop(i)
                 break
         self._create_pipeline(steps=pip_steps)
+    
+    def clear_steps(self):
+        """Removes all steps from the pipeline except the 'estimator' step
+        """
+        pip_steps = self._pipeline.steps
+        for i, (step_name, _) in enumerate(pip_steps):
+            if step_name == 'estimator':
+                pip_steps = pip_steps[i:]
+                break
+        self._create_pipeline(steps=pip_steps)
 
 
     def change_estimator(self, new_estimator):
@@ -263,7 +281,7 @@ class ModelPipeline:
         self._create_pipeline(steps=pip_steps)
 
 
-    def save(self, path):
+    def save_pipeline(self, path):
         """
         Save the pipeline to a file.
 
@@ -278,7 +296,7 @@ class ModelPipeline:
         
         dump(self._pipeline, path)
     
-    def load(self, path):
+    def load_pipeline(self, path):
         """
         Load the pipeline from a file
         
@@ -288,6 +306,31 @@ class ModelPipeline:
             The path the pipeline should be loaded from
         """
         self._pipeline = load(path)
+        
+        
+    def save_prediction(self, data:pd.DataFrame):
+        """
+        Save the predictions to a file at location data/processed.
+
+        Args:
+            data : The data to make predictions on
+        """
+        
+        # check if df contains the target column
+        if self._target in data.columns:
+            data = data.drop(self._target, axis=1)
+            
+        # check if the pipeline is initialized
+        if not self._is_initialized():
+            raise Exception('The pipeline is not initialized yet. Please run the pipeline first.')
+        
+        # get the predictions 
+        predictions = self._pipeline.predict(data)
+        
+        # save the predictions
+        path = config.DATA_DIR / 'processed/regression_tyrell_prediction.csv'
+        print("Saving predictions to {}".format(path)) if self._verbose_level > 0 else None
+        pd.DataFrame(predictions).to_csv(path, index=False, header=False)
         
 
     def _create_pipeline(self, steps):
