@@ -4,8 +4,8 @@
 - [Table of Contents](#table-of-contents)
 - [Project Description](#project-description)
 - [Installation](#installation)
-- [Project Organization](#project-organization)
 - [Usage](#usage)
+- [Project Organization](#project-organization)
 - [License](#license)
 
 ## Project Description
@@ -67,6 +67,21 @@ py -m pip install -r requirements.txt
 pip install -r requirements.txt
 ```
 
+## Usage
+For running the pipeline of this project you first have to make sure that the training set you want to use is in the required `data/raw` folder. By default a dataset named `dataset_train.csv` is expected. If you want to use a different dataset, you have to use the `--train_dataset` parameter when running the pipeline. You may also use the `--test_dataset` parameter if you have a test set that you want to get predictions from. If the pipeline is started with this parameter, the pipeline will save the predictions into the `data/processed` folder. In case that the training dataset doesn't include the target column a seperate target file is required. With the `--y_train_dataset` parameter you may include this file in the pipeline. The pipeline will then use this file as the target column for the training set. 
+
+The `main.py` file is the entry point for the project. To run the pipeline with the default dataset and no test set use the following command:
+```
+py main.py
+```
+The project will start running and display output in your command line. If you want to use a dataset different from the default set and with a test set for getting a `prediction.csv` file use the following command:
+```
+py main.py --dataset [your_dataset_name] --test_dataset [your_test_dataset_name] --y_train_dataset [your_target_dataset_name]
+```
+**Hint:** replace `[your_dataset_name]` and don't forget to include the .csv ending
+**Important:** only use `--y_train_dataset` if your training dataset doesn't include the target column. 
+
+PARAMETERS:
 
 ## Project Organization
 
@@ -120,19 +135,6 @@ pip install -r requirements.txt
 --------
 
 <p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
-
-## Usage
-For running the pipeline of this project you first have to make sure that the dataset you want to use is in the required `data/raw` folder. By default a dataset named `dataset_train.csv` is expected. If you want to use a different dataset, you have to use the --dataset parameter when running the pipeline.
-
-Open a terminal and navigate to the project directory and run the following command: 
-```
-py main.py
-```
-The project will start running and display output in your command line. If you want to use a dataset different from the default use the following command:
-```
-py main.py --dataset [your_dataset_name]
-```
-Hint: replace `[your_dataset_name]` and don't forget to include the .csv ending
 
 ## License
 
