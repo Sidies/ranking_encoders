@@ -78,10 +78,18 @@ The project will start running and display output in your command line. If you w
 ```
 py main.py --dataset [your_dataset_name] --test_dataset [your_test_dataset_name] --y_train_dataset [your_target_dataset_name]
 ```
-**Hint:** replace `[your_dataset_name]` and don't forget to include the .csv ending
+**Hint:** replace `[your_dataset_name]` and don't forget to include the .csv ending  
+
 **Important:** only use `--y_train_dataset` if your training dataset doesn't include the target column. 
 
-PARAMETERS:
+Parameter overview for main.py
+```
+--pipeline_type: The type of pipeline to run. Possible values are regre_baseline,
+--train_dataset: The name of the training dataset. Default is dataset_train.csv
+--test_dataset: The name of the test dataset. Only if this parameter is set a prediction.csv file will be created.
+--y_train_dataset: The name of the target dataset. Only use this parameter if your training dataset doesn't include the target column.
+--target: The name of the target column. Default is cv_score
+```
 
 ## Project Organization
 
