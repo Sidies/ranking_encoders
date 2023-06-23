@@ -6,6 +6,7 @@ from sklearn.base import TransformerMixin, BaseEstimator
 from src.features.embeddings import GraphEmbedding
 from src import configuration as config
 from sklearn.cluster import KMeans
+from sklearn.preprocessing import OneHotEncoder
 
 class DebugTransformer(BaseEstimator, TransformerMixin):
     """
@@ -126,3 +127,22 @@ class Node2VecGraphEmbeddingWithKMeans(BaseEstimator, TransformerMixin):
             cluster = kmeans.predict([embedding])[0]
             X.at[i, 'encoder_cluster'] = cluster
         return X
+
+class OneHotEncoder(BaseEstimator, TransformerMixin):
+    def __init__(self):
+        self.columns = None
+        self.categories = {}
+    
+    def fit(self, df: pd.DataFrame):
+        self.columns = df.columns
+        for column in self.columns:
+            self.categories[column] = df[column].unique()
+        return self
+    
+    def transform(self, df: pd.DataFrame):
+        transformed_df = df.copy()
+        for column in self.columns:
+            categories = self.categories[column]
+            for category in categories:
+                transformed_df[column + '_' + str(category)] = (df[column] == category).astype(int)
+        return transformed_df
