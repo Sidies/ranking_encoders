@@ -113,7 +113,6 @@ class Node2VecEmbedding(BaseEstimator, TransformerMixin):
         X['node2vec_embedding_dim1'] = 0
         X['node2vec_embedding_dim2'] = 0
         
-        print(type(X))
         for i, row in X.iterrows():
             node = row['encoder']
             embedding = n2v_embeddings[node]
