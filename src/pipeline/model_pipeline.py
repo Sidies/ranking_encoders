@@ -26,7 +26,7 @@ class ModelPipeline:
     
     def __init__(self, 
                  df:pd.DataFrame,
-                 target:str,
+                 target:str ="cv_score",
                  steps=[], 
                  verbose_level=0, 
                  evaluation:EvaluationType=EvaluationType.BASIC,

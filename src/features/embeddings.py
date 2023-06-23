@@ -19,9 +19,13 @@ class GraphEmbedding:
         model = node2vec.fit()
         return model
 
-    def poincare(self, eochs=any, batch_size=50, **kwargs):
-        model = PoincareModel(self.graph, **kwargs)
-        model.train(epochs=eochs, batch_size=batch_size)
+    def poincare(self, epochs=100, **kwargs):
+        # Convert the graph into a list of edges.
+        edges = list(self.graph.edges())
+
+        # Train the Poincaré model.
+        model = PoincareModel(edges, size=2, negative=2)
+        model.train(epochs=epochs)
         return model
 
     def visualize(self, model):

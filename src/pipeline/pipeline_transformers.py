@@ -95,6 +95,33 @@ class ColumnDropper(BaseEstimator, TransformerMixin):
         return X.drop(self.cols_to_drop, axis=1)
     
 
+class Node2VecEmbedding(BaseEstimator, TransformerMixin):
+    def __init__(self, graph, **kwargs):
+        self.graph = graph
+        self.kwargs = kwargs
+        
+    def fit(self, X, y=None):
+        return self
+    
+    def transform(self, X):
+        graph_embedding = GraphEmbedding(self.graph)
+        model = graph_embedding.node2vec(**self.kwargs)
+        
+        # Get the embeddings.
+        n2v_embeddings = {node: model.wv.get_vector(node) for node in model.wv.index_to_key}
+        
+        X['node2vec_embedding_dim1'] = 0
+        X['node2vec_embedding_dim2'] = 0
+        
+        print(type(X))
+        for i, row in X.iterrows():
+            node = row['encoder']
+            embedding = n2v_embeddings[node]
+            X.at[i, 'node2vec_embedding_dim1'] = embedding[0]
+            X.at[i, 'node2vec_embedding_dim2'] = embedding[1]
+        return X
+    
+
 class Node2VecGraphEmbeddingWithKMeans(BaseEstimator, TransformerMixin):
     def __init__(self, graph, **kwargs):
         self.graph = graph
@@ -125,4 +152,31 @@ class Node2VecGraphEmbeddingWithKMeans(BaseEstimator, TransformerMixin):
             embedding = node2vec_embeddings[node]
             cluster = kmeans.predict([embedding])[0]
             X.at[i, 'encoder_cluster'] = cluster
+        return X
+    
+    
+class PoincareEmbedding(BaseEstimator, TransformerMixin):
+    def __init__(self, graph, **kwargs):
+        self.graph = graph
+        self.kwargs = kwargs
+        
+    def fit(self, X, y=None):
+        return self
+    
+    def transform(self, X):
+        graph_embedding = GraphEmbedding(self.graph)
+        model = graph_embedding.poincare(**self.kwargs)
+        
+        # Get the embeddings.
+        poincare_embeddings = {node: model.kv.get_vector(node) for node in model.kv.index_to_key}
+        
+        X['poincare_embedding_dim1'] = 0
+        X['poincare_embedding_dim2'] = 0
+        
+        print(type(X))
+        for i, row in X.iterrows():
+            node = row['encoder']
+            embedding = poincare_embeddings[node]
+            X.at[i, 'poincare_embedding_dim1'] = embedding[0]
+            X.at[i, 'poincare_embedding_dim2'] = embedding[1]
         return X
