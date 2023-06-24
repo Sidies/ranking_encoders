@@ -119,10 +119,9 @@ class ModelPipeline:
                 cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
             )
             
-        elif self._evaluation == EvaluationType.GRID_SEARCH:
-            metric = list(performance_metrics.keys())[0]        
+        elif self._evaluation == EvaluationType.GRID_SEARCH:   
             X_train, y_train = self._split_target(self._df, self._target)    
-            validation_performance_scores = self._do_grid_search(X_train, y_train, param_grid=self._param_grid, scoring=metric)
+            validation_performance_scores = self._do_grid_search(X_train, y_train, param_grid=self._param_grid)
             
         else:
             raise Exception(f"Unknown evaluation type: {self._evaluation}")
@@ -348,7 +347,7 @@ class ModelPipeline:
             
         return is_initialized
     
-    def _do_grid_search(self, X_train:pd.DataFrame, y_train, param_grid, scoring='accuracy', cv=5, n_jobs=-1):
+    def _do_grid_search(self, X_train:pd.DataFrame, y_train, param_grid, cv=5, n_jobs=-1):
         """
         Perform grid search on the pipeline
         
@@ -363,16 +362,16 @@ class ModelPipeline:
         n_jobs: int
             The number of jobs to run in parallel
         """        
-        print("Performing grid search") if self._verbose_level > 0 else None       
+        print("Performing grid search") if self._verbose_level > 0 else None     
         
-        # select the refit value
-        refit_value = None
-        if isinstance(scoring, dict):
-            refit_value = list(scoring.keys())[0]
-        else:
-            refit_value = scoring        
+        scoring = make_scorer(evaluate_regression.average_spearman, greater_is_better=True)
         
-        grid_search = GridSearchCV(self._pipeline, param_grid, scoring=scoring, cv=cv, n_jobs=n_jobs, refit=refit_value, verbose=self._verbose_level)
+        grid_search = GridSearchCV(self._pipeline, 
+                                   param_grid, 
+                                   scoring=scoring, 
+                                   cv=evaluate_regression.CustomSplit(factors=self._split_factors, train_size=0.75), 
+                                   n_jobs=n_jobs, 
+                                   verbose=self._verbose_level)
         grid_search.fit(X_train, y_train)
         self._pipeline = grid_search.best_estimator_
         

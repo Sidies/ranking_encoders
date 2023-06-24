@@ -15,17 +15,25 @@ class GraphEmbedding:
         self.graph = graph
 
     def node2vec(self, **kwargs):
+        """
+        Train the node2vec model on the graph.
+        example parameters: walk_length=20, num_walks=1000, workers=1
+        """        
         node2vec = Node2Vec(self.graph, **kwargs)
         model = node2vec.fit()
         return model
 
-    def poincare(self, epochs=100, **kwargs):
+    def poincare(self, epochs=100, batch_size=10, **kwargs):
+        """
+        Train the Poincaré model on the graph.
+        example parameters: size=2, negative=2
+        """
         # Convert the graph into a list of edges.
         edges = list(self.graph.edges())
 
         # Train the Poincaré model.
-        model = PoincareModel(edges, size=2, negative=2)
-        model.train(epochs=epochs)
+        model = PoincareModel(edges, **kwargs)
+        model.train(epochs=epochs, batch_size=batch_size)
         return model
 
     def visualize(self, model):
