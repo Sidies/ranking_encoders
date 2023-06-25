@@ -17,7 +17,7 @@ def ignore_warnings():
 # Static variables that contain paths to directories
 ROOT_DIR = Path(__file__).parent.parent
 DATA_DIR = ROOT_DIR / "data"
-DATA_RAW_DIR = DATA_DIR / "data/raw"
+DATA_RAW_DIR = DATA_DIR / "raw"
 FIGURE_DIR = ROOT_DIR / "reports/figures"
 
 

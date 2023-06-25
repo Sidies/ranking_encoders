@@ -15,9 +15,6 @@ from sklearn.dummy import DummyRegressor, DummyClassifier
 class TestModelPipeline(unittest.TestCase):
     
     def setUp_classification(self):
-        """
-        The setUp method is run before each test
-        """
         df = pd.DataFrame({'x': [1, 2, 3], 'y': [4, 5, 6], 'z': [7, 8, 9]})
         self.pipeline = ModelPipeline(df, split_factors=[], target="z", evaluation=EvaluationType.BASIC)
         
@@ -57,11 +54,21 @@ class TestModelPipeline(unittest.TestCase):
         
         
     def test_regression_pipeline(self):
-        """
-        The setUp method is run before each test
-        """
         df = config.load_traindata_for_regression()
         self.pipeline = ModelPipeline(df, evaluation=EvaluationType.BASIC)
+        
+        '''@self.pipeline.get_pipeline_step_decorator()
+        def my_transformer(*args, **kwargs):
+            return LinearRegression(*args, **kwargs)
+
+        my_transformer(name="linearregression", position=None)'''
+        self.pipeline.change_estimator(DummyRegressor())
+        self.pipeline.run()
+        
+        
+    def test_cross_validate(self):
+        df = config.load_traindata_for_regression()
+        self.pipeline = ModelPipeline(df, evaluation=EvaluationType.CROSS_VALIDATION)
         
         '''@self.pipeline.get_pipeline_step_decorator()
         def my_transformer(*args, **kwargs):

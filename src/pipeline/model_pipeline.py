@@ -75,6 +75,9 @@ class ModelPipeline:
         is_regression = False
         if is_regressor(self._pipeline.named_steps['estimator']):
             is_regression = True
+            performance_metrics = {
+                    'spearman': make_scorer(evaluate_regression.average_spearman, greater_is_better=True)
+            }
         elif is_classifier(self._pipeline.named_steps['estimator']):
             performance_metrics = {
                     'mcc': make_scorer(matthews_corrcoef),
@@ -111,13 +114,23 @@ class ModelPipeline:
         elif self._evaluation == EvaluationType.CROSS_VALIDATION:
             X_train, y_train = self._split_target(self._df, self._target)
             self._pipeline.fit(X_train, y_train)
-            validation_performance_scores = cross_validate(
-                self._pipeline,
-                X_train,
-                y_train,
-                scoring=performance_metrics,
-                cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-            )
+            
+            if self._split_factors == []:
+                validation_performance_scores = cross_validate(
+                    self._pipeline,
+                    X_train,
+                    y_train,
+                    scoring=performance_metrics,
+                    cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+                )
+            else: 
+                validation_performance_scores = cross_validate(
+                    self._pipeline,
+                    X_train,
+                    y_train,
+                    scoring=performance_metrics,
+                    cv=evaluate_regression.CustomSplit(factors=self._split_factors, train_size=0.75)
+                )
             
         elif self._evaluation == EvaluationType.GRID_SEARCH:   
             X_train, y_train = self._split_target(self._df, self._target)    
@@ -366,12 +379,20 @@ class ModelPipeline:
         
         scoring = make_scorer(evaluate_regression.average_spearman, greater_is_better=True)
         
-        grid_search = GridSearchCV(self._pipeline, 
+        if self._split_factors == []:
+            grid_search = GridSearchCV(self._pipeline, 
                                    param_grid, 
                                    scoring=scoring, 
-                                   cv=evaluate_regression.CustomSplit(factors=self._split_factors, train_size=0.75), 
+                                   cv=5, 
                                    n_jobs=n_jobs, 
-                                   verbose=self._verbose_level)
+                                   verbose=self._verbose_level)    
+        else: 
+            grid_search = GridSearchCV(self._pipeline, 
+                                    param_grid, 
+                                    scoring=scoring, 
+                                    cv=evaluate_regression.CustomSplit(factors=self._split_factors, train_size=0.75), 
+                                    n_jobs=n_jobs, 
+                                    verbose=self._verbose_level)
         grid_search.fit(X_train, y_train)
         self._pipeline = grid_search.best_estimator_
         

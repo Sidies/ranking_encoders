@@ -66,55 +66,9 @@ class CustomSplit(BaseCrossValidator):
             test_idx = X[self.factors].isin(factors_test.iloc[i])[X[self.factors].isin(factors_test.iloc[i])].index
             yield train_idx, test_idx
 
-    def get_n_splits(self, X=None, y=None, groups=None):
-        return len(X[self.factors].unique())
-    
-
-class CustomSplitter(BaseCrossValidator):
-    def __init__(self, factors, target, train_size=0.75, shuffle=True, random_state=0):
-        self.factors = factors
-        self.target = target
-        self.train_size = train_size
-        self.shuffle = shuffle
-        self.random_state = random_state
-
-    def split(self, X, y=None, groups=None):
-        X_train, X_test, y_train, y_test = custom_train_test_split_with_ytrain(df=X, 
-                                                               y_train=y, 
-                                                               target= self.target, 
-                                                               factors=self.factors,
-                                                                train_size=self.train_size,
-                                                                shuffle=self.shuffle,
-                                                                random_state=self.random_state)
-
-        train_indices = X_train.index
-        test_indices = X_test.index
-
-        yield train_indices, test_indices
-
-    def get_n_splits(self, X=None, y=None, groups=None):
-        return 1
-    
-    
-def custom_train_test_split_with_ytrain(df: pd.DataFrame, y_train, target, factors, train_size=0.75, shuffle=True, random_state=0):
-    """
-    Like train_test_split, but keeps encoders together: the split is on 'factors'.
-    """
-    df = pd.concat([df, y_train], axis=1)
-    
-    X_factors = df.groupby(factors).agg(lambda a: np.nan).reset_index()[factors]
-    factors_train, factors_test = train_test_split(X_factors, stratify=X_factors.dataset,
-                                                   train_size=train_size, shuffle=shuffle, random_state=random_state)
-
-    df_train = pd.merge(factors_train, df, on=factors)
-    df_test = pd.merge(factors_test, df, on=factors)
-
-    X_train = df_train.drop(target, axis=1)
-    y_train = df_train[target]
-    X_test = df_test.drop(target, axis=1)
-    y_test = df_test[target]
-
-    return X_train, X_test, y_train, y_test
+    def get_n_splits(self, X:pd.DataFrame=None, y=None, groups=None):
+        #return 1
+        return X[self.factors].nunique()
 
 
 def custom_train_test_split(df: pd.DataFrame, factors, target, train_size=0.75, shuffle=True, random_state=0):
@@ -169,6 +123,7 @@ def spearman_rho(x: Iterable, y: Iterable, nan_policy="omit"):
 
 
 def list_spearman(rf1: pd.DataFrame, rf2: pd.DataFrame) -> np.array:
+    
     if not rf1.columns.equals(rf2.columns) or not rf1.index.equals(rf2.index):
         raise ValueError("The two input dataframes should have the same index and columns.")
 

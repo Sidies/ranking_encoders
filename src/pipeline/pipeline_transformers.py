@@ -155,6 +155,7 @@ class Node2VecGraphEmbeddingWithKMeans(BaseEstimator, TransformerMixin):
         return X
     
     
+
 class PoincareEmbedding(BaseEstimator, TransformerMixin):
     def __init__(self, graph, **kwargs):
         self.graph = graph
