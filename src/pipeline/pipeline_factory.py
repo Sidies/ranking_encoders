@@ -1,18 +1,21 @@
 import pandas as pd
-from src.pipeline.model_pipeline import ModelPipeline, EvaluationType
 from sklearn.dummy import DummyClassifier
 from sklearn.dummy import DummyRegressor
-from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LinearRegression
 from enum import Enum
-from src.pipeline.pipeline_transformers import PoincareEmbedding
-from src.features.encoder_utils import load_graph
+from lightgbm import LGBMRegressor
+
 from src import configuration as config
+from src.features.encoder_utils import load_graph
+from src.pipeline.model_pipeline import ModelPipeline, EvaluationType
+from src.pipeline.pipeline_transformers import PoincareEmbedding, OpenMLMetaFeatureTransformer, \
+    GeneralPurposeEncoderTransformer
 
 class ModelType(Enum):
     REGRE_BASELINE = "regre_baseline"
     CLASS_BASELINE = "class_baseline"
     LINEAR_REGRESSION = "linear_regression"
+    REGRE_PREPROCESSED = "regre_preprocessed"
      
 
 class PipelineFactory:
@@ -68,6 +71,16 @@ class PipelineFactory:
             pipeline_steps = [
                 ("poincare_embedding", poincare_embedddings_transformer),
                 ("estimator", LinearRegression())   
+            ]
+
+        elif model_type == "regre_preprocessed" or model_type == ModelType.REGRE_PREPROCESSED:
+            pipeline_steps = [
+                ("encoder_transformer", PoincareEmbedding(
+                    load_graph(config.ROOT_DIR / "data/external/graphs/encodings_graph.adjlist")
+                )),
+                ("dataset_transformer", OpenMLMetaFeatureTransformer()),
+                ("general_transformer", GeneralPurposeEncoderTransformer()),
+                ("estimator", LGBMRegressor())
             ]
             
         else:

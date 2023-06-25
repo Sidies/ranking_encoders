@@ -1,63 +1,72 @@
 import pandas as pd
 import numpy as np
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
 from sklearn.base import TransformerMixin, BaseEstimator
 from src.features.embeddings import GraphEmbedding
 from src import configuration as config
 from sklearn.cluster import KMeans
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.decomposition import PCA
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler
+from src.features.encoder_utils import get_metafeatures
+from category_encoders.binary import BinaryEncoder
+from category_encoders.target_encoder import TargetEncoder
+
 
 class DebugTransformer(BaseEstimator, TransformerMixin):
     """
     Transformer that prints the data it receives.
     """
+
     def __init__(self, verbose=0):
         self.verbose = verbose
-        
+
     def transform(self, X):
         if self.verbose > 0:
             if hasattr(X, 'toarray'):  # check if X is a sparse matrix
                 df = pd.DataFrame(X.toarray())
-                #print(tabulate(df.columns, headers=df.columns, tablefmt='simple'))
+                # print(tabulate(df.columns, headers=df.columns, tablefmt='simple'))
                 print(df.columns)
             else:
                 df = pd.DataFrame(X)
-                #print(tabulate(df.columns, headers=df.columns, tablefmt='simple'))
+                # print(tabulate(df.columns, headers=df.columns, tablefmt='simple'))
                 print(df.columns)
-            
+
         return X
 
     def fit(self, X, y=None, **fit_params):
         return self
-    
+
+
 class PrintDataframe(BaseEstimator, TransformerMixin):
     """
     Transformer that prints the dataframe it receives.
     """
+
     def __init__(self, verbose=0):
         self.verbose = verbose
-        
-    def transform(self, X):        
+
+    def transform(self, X):
         if self.verbose > 0 and isinstance(X, pd.DataFrame):
             config.print_divider_line()
             print("Printing dataframe:")
             print(X.head())
             config.print_divider_line()
-            
+
         return X
 
     def fit(self, X, y=None, **fit_params):
         return self
-    
+
+
 class TextPrinter(BaseEstimator, TransformerMixin):
     """
     Transformer that prints the text it receives.
     """
+
     def __init__(self, text, verbose=0):
         self.text = text
         self.verbose = verbose
-        
+
     def transform(self, X):
         if self.verbose > 0:
             print(f"{self.text}")
@@ -73,9 +82,10 @@ class ColumnKeeper(BaseEstimator, TransformerMixin):
     """
     Transformer that keeps only the specified columns.
     """
+
     def __init__(self, columns):
         self.columns = columns
-        
+
     def transform(self, X):
         return X[self.columns]
 
@@ -94,33 +104,36 @@ class ColumnDropper(BaseEstimator, TransformerMixin):
     def transform(self, X):
         # assuming X is a DataFrame
         return X.drop(self.cols_to_drop, axis=1)
-    
+
 
 class Node2VecEmbedding(BaseEstimator, TransformerMixin):
     def __init__(self, graph, **kwargs):
         self.graph = graph
         self.kwargs = kwargs
-        
+
     def fit(self, X, y=None):
         return self
-    
+
     def transform(self, X):
         graph_embedding = GraphEmbedding(self.graph)
         model = graph_embedding.node2vec(**self.kwargs)
-        
+
         # Get the embeddings.
         n2v_embeddings = {node: model.wv.get_vector(node) for node in model.wv.index_to_key}
-        
+
         X['node2vec_embedding_dim1'] = 0
         X['node2vec_embedding_dim2'] = 0
-        
+
         for i, row in X.iterrows():
             node = row['encoder']
             embedding = n2v_embeddings[node]
             X.at[i, 'node2vec_embedding_dim1'] = embedding[0]
             X.at[i, 'node2vec_embedding_dim2'] = embedding[1]
+
+        X = X.drop(columns=['encoder'])
+
         return X
-    
+
 
 class Node2VecGraphEmbeddingWithKMeans(BaseEstimator, TransformerMixin):
     def __init__(self, graph, **kwargs):
@@ -133,10 +146,10 @@ class Node2VecGraphEmbeddingWithKMeans(BaseEstimator, TransformerMixin):
     def transform(self, X):
         graph_embedding = GraphEmbedding(self.graph)
         model = graph_embedding.node2vec(**self.kwargs)
-        
+
         # Get the embeddings.
         node2vec_embeddings = {node: model.wv.get_vector(node) for node in model.wv.index_to_key}
-        
+
         # Convert the embeddings to a numpy array.
         embed_array = np.array(list(node2vec_embeddings.values())).astype('double')
 
@@ -152,68 +165,144 @@ class Node2VecGraphEmbeddingWithKMeans(BaseEstimator, TransformerMixin):
             embedding = node2vec_embeddings[node]
             cluster = kmeans.predict([embedding])[0]
             X.at[i, 'encoder_cluster'] = cluster
+
+        X = X.drop(columns=['encoder'])
+
         return X
-    
-    
+
 
 class PoincareEmbedding(BaseEstimator, TransformerMixin):
     def __init__(self, graph, **kwargs):
         self.graph = graph
         self.kwargs = kwargs
-        
+
     def fit(self, X, y=None):
         return self
-    
+
     def transform(self, X):
         graph_embedding = GraphEmbedding(self.graph)
         model = graph_embedding.poincare(**self.kwargs)
-        
+
         # Get the embeddings.
         poincare_embeddings = {node: model.kv.get_vector(node) for node in model.kv.index_to_key}
-        
+
         X['poincare_embedding_dim1'] = 0
         X['poincare_embedding_dim2'] = 0
-        
-        print(type(X))
+
+        # print(type(X))
         for i, row in X.iterrows():
             node = row['encoder']
             embedding = poincare_embeddings[node]
             X.at[i, 'poincare_embedding_dim1'] = embedding[0]
             X.at[i, 'poincare_embedding_dim2'] = embedding[1]
+
+        X = X.drop(columns=['encoder'])
+
         return X
 
 
-class OneHotEncoderTransformer(BaseEstimator, TransformerMixin):
-    def __init__(self):
-        self.columns = None
-        self.categories = {}
+def get_features_to_drop_by_nan_threshold(df, threshold):
+    nan_count = df.isna().sum()
+    total_count = nan_count + df.notna().sum()
 
-    def fit(self, df: pd.DataFrame):
-        self.columns = df.columns
-        for column in self.columns:
-            self.categories[column] = df[column].unique()
+    rel_nan_count = pd.DataFrame(nan_count / total_count).reset_index()
+    features_to_drop = rel_nan_count[rel_nan_count[0] >= threshold]['index']
+
+    return features_to_drop
+
+
+class OpenMLMetaFeatureTransformer(BaseEstimator, TransformerMixin):
+    """
+    Transformer that maps processed OpenML metafeatures to their corresponding dataset.
+
+    Parameters
+    ----------
+    nan_ratio_feature_drop_threshold: float
+        Features with a 'nan' ratio above this value are dropped.
+    imputer: sklearn.impute.SimpleImputer
+        The imputer used for imputing 'nan' values remaining after the feature dropping.
+    scaler: sklearn.preprocessing.StandardScaler
+        The scaler used for scaling the values as preparation for the principal component analysis.
+    expected_pca_variance: float
+        The expected variance that should be retained after applying the pca.
+    encoder: category_encoders.utils.BaseEncoder
+        The encoder that should be applied on the original 'dataset' feature. If 'none' is passed no
+        encoder is applied and the feature is just dropped.
+    """
+
+    def __init__(
+        self,
+        nan_ratio_feature_drop_threshold=0.4,
+        imputer=SimpleImputer(strategy='mean'),
+        scaler=StandardScaler(),
+        expected_pca_variance=1,
+        encoder=TargetEncoder()
+    ):
+        self.nan_ratio_feature_drop_threshold = nan_ratio_feature_drop_threshold
+        self.imputer = imputer
+        self.scaler = scaler
+        self.expected_pca_variance = expected_pca_variance
+        self.encoder = encoder
+
+    def fit(self, X, y=None):
+        metafeatures = get_metafeatures(pd.Series(X['dataset'].unique()))
+        ids = metafeatures.index
+
+        features_to_drop = get_features_to_drop_by_nan_threshold(
+            metafeatures,
+            self.nan_ratio_feature_drop_threshold
+        )
+        metafeatures = metafeatures.drop(columns=features_to_drop)
+
+        if len(metafeatures.columns) == 0:
+            self.metafeatures = pd.DataFrame(index=ids)
+        else:
+            metafeatures = pd.DataFrame(self.imputer.fit_transform(metafeatures), index=ids)
+            metafeatures = pd.DataFrame(self.scaler.fit_transform(metafeatures), index=ids)
+            if self.expected_pca_variance < 1:
+                metafeatures = pd.DataFrame(PCA(n_components=self.expected_pca_variance).fit_transform(metafeatures), index=ids)
+            self.metafeatures = metafeatures.add_prefix('dataset_metafeature_')
+
+        if self.encoder:
+            self.encoder.fit(X['dataset'].astype('category'), y)
+
         return self
 
-    def transform(self, df: pd.DataFrame):
-        transformed_df = df.copy()
-        for column in self.columns:
-            categories = self.categories[column]
-            for category in categories:
-                transformed_df[column + '_' + str(category)] = (df[column] == category).astype(int)
-        return transformed_df
+    def transform(self, X):
+        X_new = pd.merge(X, self.metafeatures, left_on='dataset', right_index=True).sort_index()
+        X_new = X_new.drop(columns=['dataset'])
+        if self.encoder:
+            X_new = pd.concat([
+                X_new,
+                self.encoder.transform(X['dataset'].astype('category'))
+            ], axis=1)
 
-class OneHotEncoderTransformer2(BaseEstimator, TransformerMixin):
-    def __init__(self):
-        self.columns = None
-        
-    def fit(self, df, y=None):
-        self.columns = df.columns
+        return X_new
+
+
+class GeneralPurposeEncoderTransformer(BaseEstimator, TransformerMixin):
+    def __init__(
+        self,
+        model_encoder=BinaryEncoder(),
+        tuning_encoder=BinaryEncoder(),
+        scoring_encoder=BinaryEncoder()
+    ):
+        self.model_encoder = model_encoder
+        self.tuning_encoder = tuning_encoder
+        self.scoring_encoder = scoring_encoder
+
+    def fit(self, X, y=None):
+        self.model_encoder.fit(X['model'], y)
+        self.tuning_encoder.fit(X['tuning'], y)
+        self.scoring_encoder.fit(X['scoring'], y)
         return self
-    
-    def transform(self, df):
-        encoded_df = df.copy()
-        for column in self.columns:
-            encoded_columns = pd.get_dummies(df[column], prefix=column)
-            encoded_df = pd.concat([encoded_df, encoded_columns], axis=1)
-            encoded_df.drop(column, axis=1, inplace=True)
-        return encoded_df
+
+    def transform(self, X):
+        model_encoded = self.model_encoder.transform(X['model'])
+        tuning_encoded = self.tuning_encoder.transform(X['tuning'])
+        scoring_encoded = self.scoring_encoder.transform(X['scoring'])
+
+        X_new = X.drop(columns=['model', 'tuning', 'scoring'])
+        X_new = pd.concat([X_new, model_encoded, tuning_encoded, scoring_encoded], axis=1)
+
+        return X_new

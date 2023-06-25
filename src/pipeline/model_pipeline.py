@@ -3,12 +3,11 @@ import numpy as np
 import enum
 from joblib import dump, load
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef, make_scorer, precision_score, recall_score
+from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef, make_scorer, mean_absolute_error, \
+    mean_squared_error, r2_score
 from sklearn.model_selection import cross_validate, train_test_split
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import r2_score
 from sklearn.base import is_classifier, is_regressor
 from src.pipeline.evaluation import evaluate_regression
 from src import configuration as config
@@ -69,14 +68,17 @@ class ModelPipeline:
         
         print(f"Starting pipeline using method: {self._evaluation}") if self._verbose_level > 0 else None
         
-        validation_performance_scores = {}
+        self._validation_performance_scores = {}
         
         performance_metrics = {}
         is_regression = False
         if is_regressor(self._pipeline.named_steps['estimator']):
             is_regression = True
             performance_metrics = {
-                    'spearman': make_scorer(evaluate_regression.average_spearman, greater_is_better=True)
+                'rmse': 'neg_root_mean_squared_error',
+                'mae': 'neg_mean_absolute_error',
+                'r2': 'r2',
+                'spearman': make_scorer(evaluate_regression.average_spearman, greater_is_better=True)
             }
         elif is_classifier(self._pipeline.named_steps['estimator']):
             performance_metrics = {
@@ -97,18 +99,23 @@ class ModelPipeline:
             if not is_regression:
                 self._pipeline.fit(X_train, y_train)
                 y_pred = self._pipeline.predict(X_test)
-                validation_performance_scores['validation_accuracy'] = [accuracy_score(y_test, y_pred)]
-                validation_performance_scores['validation_f1-score'] = [f1_score(y_test, y_pred, average='macro')]
-                validation_performance_scores['validation_mcc'] = [matthews_corrcoef(y_test, y_pred)]
+                self._validation_performance_scores['validation_accuracy'] = [accuracy_score(y_test, y_pred)]
+                self._validation_performance_scores['validation_f1-score'] = [f1_score(y_test, y_pred, average='macro')]
+                self._validation_performance_scores['validation_mcc'] = [matthews_corrcoef(y_test, y_pred)]
                 
             elif is_regression:
+                y_pred = self._pipeline.fit(X_train, y_train).predict(X_test)
+                self._validation_performance_scores['validation_rmse'] = [mean_squared_error(y_test, y_pred, squared=False)]
+                self._validation_performance_scores['validation_mae'] = [mean_absolute_error(y_test, y_pred)]
+                self._validation_performance_scores['validation_r2'] = [r2_score(y_test, y_pred)]
+
                 new_index = "encoder"
                 y_pred = pd.Series(self._pipeline.fit(X_train, y_train).predict(X_test), index=y_test.index, name="cv_score_pred")
                 df_pred = pd.concat([X_test, y_test, y_pred], axis=1)
                 # ---- convert to rankings and evaluate
                 rankings_test = evaluate_regression.get_rankings(df_pred, factors=self._split_factors, new_index=new_index, target="cv_score")
                 rankings_pred = evaluate_regression.get_rankings(df_pred, factors=self._split_factors, new_index=new_index, target="cv_score_pred")
-                print(evaluate_regression.average_spearman(rankings_test, rankings_pred))
+                self._validation_performance_scores['validation_average_spearman'] = evaluate_regression.average_spearman(rankings_test, rankings_pred)
                 
             
         elif self._evaluation == EvaluationType.CROSS_VALIDATION:
@@ -116,7 +123,7 @@ class ModelPipeline:
             self._pipeline.fit(X_train, y_train)
             
             if self._split_factors == []:
-                validation_performance_scores = cross_validate(
+                self._validation_performance_scores = cross_validate(
                     self._pipeline,
                     X_train,
                     y_train,
@@ -124,7 +131,7 @@ class ModelPipeline:
                     cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
                 )
             else: 
-                validation_performance_scores = cross_validate(
+                self._validation_performance_scores = cross_validate(
                     self._pipeline,
                     X_train,
                     y_train,
@@ -134,7 +141,7 @@ class ModelPipeline:
             
         elif self._evaluation == EvaluationType.GRID_SEARCH:   
             X_train, y_train = self._split_target(self._df, self._target)    
-            validation_performance_scores = self._do_grid_search(X_train, y_train, param_grid=self._param_grid)
+            self._validation_performance_scores = self._do_grid_search(X_train, y_train, param_grid=self._param_grid)
             
         else:
             raise Exception(f"Unknown evaluation type: {self._evaluation}")
@@ -143,15 +150,15 @@ class ModelPipeline:
         self._run_count += 1    
         
         # print out the evaluation metrics
-        if self._verbose_level > 0 and validation_performance_scores != {}:            
+        if self._verbose_level > 0 and self._validation_performance_scores != {}:
             print("Evaluation metrics:") 
             # print the evaluation metrics
             if self._evaluation == "grid_search":
-                for metric, value in validation_performance_scores.items():
+                for metric, value in self._validation_performance_scores.items():
                     output = metric + ': ' + ', '.join(str(round(v, 4)) for v in value)
                     print("    " + output)
             else:
-                for metric, values in {**validation_performance_scores}.items():
+                for metric, values in {**self._validation_performance_scores}.items():
                     output = metric + ': ' \
                                 + np.array2string(np.mean(values), precision=4) + ' [std=' \
                                 + np.array2string(np.std(values), precision=4) + ']'
@@ -406,18 +413,18 @@ class ModelPipeline:
                 print("    " + output)
             
         # select validation scores
-        validation_performance_scores = {}
+        self._validation_performance_scores = {}
         for metric, values in {**grid_search.cv_results_}.items():
             '''if metric.startswith('split'):
-                validation_performance_scores[metric] = values'''
+                self._validation_performance_scores[metric] = values'''
             if metric.startswith('mean'):
-                validation_performance_scores[metric] = [values[grid_search.best_index_]]
+                self._validation_performance_scores[metric] = [values[grid_search.best_index_]]
             elif metric.startswith('std'):
-                validation_performance_scores[metric] = [values[grid_search.best_index_]]
+                self._validation_performance_scores[metric] = [values[grid_search.best_index_]]
         # sort the dictionary
-        validation_performance_scores = dict(sorted(validation_performance_scores.items()))
+        self._validation_performance_scores = dict(sorted(self._validation_performance_scores.items()))
         
-        return validation_performance_scores
+        return self._validation_performance_scores
     
     
     def _split_target(self, df, target):
