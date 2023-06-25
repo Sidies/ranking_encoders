@@ -7,6 +7,7 @@ from src.features.embeddings import GraphEmbedding
 from src import configuration as config
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import OneHotEncoder
+from category_encoders.binary import BinaryEncoder
 
 class DebugTransformer(BaseEstimator, TransformerMixin):
     """
@@ -77,7 +78,7 @@ class ColumnKeeper(BaseEstimator, TransformerMixin):
         self.columns = columns
         
     def transform(self, X):
-        return X[self.columns]
+        return pd.DataFrame(X[self.columns])
 
     def fit(self, X, y=None):
         return self
@@ -181,38 +182,28 @@ class PoincareEmbedding(BaseEstimator, TransformerMixin):
             X.at[i, 'poincare_embedding_dim2'] = embedding[1]
         return X
 
+class GeneralPurposeEncoderTransformer(BaseEstimator, TransformerMixin):
+    def __init__(
+        self,
+        model_encoder=BinaryEncoder(),
+        tuning_encoder=BinaryEncoder(),
+        scoring_encoder=BinaryEncoder()
+    ):
+        self.model_encoder = model_encoder
+        self.tuning_encoder = tuning_encoder
+        self.scoring_encoder = scoring_encoder
 
-class OneHotEncoderTransformer(BaseEstimator, TransformerMixin):
-    def __init__(self):
-        self.columns = None
-        self.categories = {}
-
-    def fit(self, df: pd.DataFrame):
-        self.columns = df.columns
-        for column in self.columns:
-            self.categories[column] = df[column].unique()
+    def fit(self, X, y=None):
+        self.model_encoder.fit(pd.DataFrame(X['model']))
+        self.tuning_encoder.fit(pd.DataFrame(X['tuning']))
+        self.scoring_encoder.fit(pd.DataFrame(X['scoring']))
         return self
 
-    def transform(self, df: pd.DataFrame):
-        transformed_df = df.copy()
-        for column in self.columns:
-            categories = self.categories[column]
-            for category in categories:
-                transformed_df[column + '_' + str(category)] = (df[column] == category).astype(int)
-        return transformed_df
+    def transform(self, X):
+        model_encoded = self.model_encoder.transform(pd.DataFrame(X['model']))
+        tuning_encoded = self.tuning_encoder.transform(pd.DataFrame(X['tuning']))
+        scoring_encoded = self.scoring_encoder.transform(pd.DataFrame(X['scoring']))
+        X_new = pd.concat([X, model_encoded, tuning_encoded, scoring_encoded], axis=1)
+        X_new = X_new.drop(columns=['model', 'tuning', 'scoring'])
 
-class OneHotEncoderTransformer2(BaseEstimator, TransformerMixin):
-    def __init__(self):
-        self.columns = None
-        
-    def fit(self, df, y=None):
-        self.columns = df.columns
-        return self
-    
-    def transform(self, df):
-        encoded_df = df.copy()
-        for column in self.columns:
-            encoded_columns = pd.get_dummies(df[column], prefix=column)
-            encoded_df = pd.concat([encoded_df, encoded_columns], axis=1)
-            encoded_df.drop(column, axis=1, inplace=True)
-        return encoded_df
+        return X_new
