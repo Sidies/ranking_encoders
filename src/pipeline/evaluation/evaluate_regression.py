@@ -46,7 +46,36 @@ import warnings
 from scipy.stats import ConstantInputWarning, spearmanr
 from sklearn.model_selection import train_test_split
 from typing import Iterable
-from sklearn.model_selection import BaseCrossValidator
+from sklearn.model_selection import BaseCrossValidator, BaseShuffleSplit
+
+class CustomSplit2(BaseShuffleSplit):
+    def __init__(self, factors, n_splits=5, train_size=0.75, random_state=None):
+        self.factors = factors
+        self.n_splits = n_splits
+        self.train_size = train_size
+        self.random_state = random_state
+
+    def _iter_indices(self, X, y=None, groups=None):
+        print(f"Size of X: {len(X)}")
+        X_factors = X.groupby(self.factors).agg(lambda a: np.nan).reset_index()[self.factors]
+        for i in range(self.n_splits):
+            print(f"Split {i}")
+            factors_train, factors_test = train_test_split(X_factors, stratify=X_factors.dataset,
+                                                           train_size=self.train_size,
+                                                           random_state=self.random_state)
+            
+            print(f"Factors train: {len(factors_train)}")
+            print(f"Factors test: {len(factors_test)}")
+            
+            train_idx = X[self.factors].isin(factors_train)[X[self.factors].isin(factors_train)].index
+            print(f"Train idx: {len(train_idx)}")
+            test_idx = X[self.factors].isin(factors_test)[X[self.factors].isin(factors_test)].index
+            print(f"Test idx: {len(test_idx)}")
+            yield train_idx, test_idx
+
+    def get_n_splits(self, X=None, y=None, groups=None):
+        return self.n_splits
+    
 
 class CustomSplit(BaseCrossValidator):
     def __init__(self, factors, train_size=0.75, shuffle=True, random_state=0):
@@ -77,11 +106,18 @@ def custom_train_test_split(df: pd.DataFrame, factors, target, train_size=0.75, 
     """
 
     X_factors = df.groupby(factors).agg(lambda a: np.nan).reset_index()[factors]
+    #print(f"X_faftors: \n {X_factors.head()}")
     factors_train, factors_test = train_test_split(X_factors, stratify=X_factors.dataset,
                                                    train_size=train_size, shuffle=shuffle, random_state=random_state)
 
+    #print(f"Factors train: \n {factors_train.head()}")
+    #print(f"factors test: \n {factors_test.head()}")
+    
     df_train = pd.merge(factors_train, df, on=factors)
     df_test = pd.merge(factors_test, df, on=factors)
+    
+    #print(f"Df train:\n {df_train.head()}")
+    #print(f"Df test:\n {df_test.head()}")
 
     X_train = df_train.drop(target, axis=1)
     y_train = df_train[target]

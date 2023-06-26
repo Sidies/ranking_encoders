@@ -78,7 +78,7 @@ class ModelPipeline:
                 'rmse': 'neg_root_mean_squared_error',
                 'mae': 'neg_mean_absolute_error',
                 'r2': 'r2',
-                'spearman': make_scorer(evaluate_regression.average_spearman, greater_is_better=True)
+                #'spearman': make_scorer(evaluate_regression.average_spearman, greater_is_better=True)
             }
         elif is_classifier(self._pipeline.named_steps['estimator']):
             performance_metrics = {
@@ -136,7 +136,7 @@ class ModelPipeline:
                     X_train,
                     y_train,
                     scoring=performance_metrics,
-                    cv=evaluate_regression.CustomSplit(factors=self._split_factors, train_size=0.75)
+                    cv=evaluate_regression.CustomSplit2(factors=self._split_factors, train_size=0.75)
                 )
             
         elif self._evaluation == EvaluationType.GRID_SEARCH:   

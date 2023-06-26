@@ -11,6 +11,8 @@ from src.pipeline.model_pipeline import ModelPipeline, EvaluationType
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.dummy import DummyRegressor, DummyClassifier
+from src.pipeline.pipeline_transformers import PrintDataframe, GroupDataframe, TextPrinter
+from src.pipeline.evaluation.evaluate_regression import BaseShuffleSplit, custom_train_test_split
 
 class TestModelPipeline(unittest.TestCase):
     
@@ -56,7 +58,7 @@ class TestModelPipeline(unittest.TestCase):
     def test_regression_pipeline(self):
         df = config.load_traindata_for_regression()
         self.pipeline = ModelPipeline(df, evaluation=EvaluationType.BASIC)
-        
+        self.pipeline.clear_steps()
         '''@self.pipeline.get_pipeline_step_decorator()
         def my_transformer(*args, **kwargs):
             return LinearRegression(*args, **kwargs)
@@ -67,14 +69,16 @@ class TestModelPipeline(unittest.TestCase):
         
         
     def test_cross_validate(self):
+        print("Starting cross validation test")
         df = config.load_traindata_for_regression()
-        self.pipeline = ModelPipeline(df, evaluation=EvaluationType.CROSS_VALIDATION)
         
-        '''@self.pipeline.get_pipeline_step_decorator()
-        def my_transformer(*args, **kwargs):
-            return LinearRegression(*args, **kwargs)
-
-        my_transformer(name="linearregression", position=None)'''
+        self.pipeline = ModelPipeline(df, evaluation=EvaluationType.BASIC)
+        self.pipeline.clear_steps()
+        self.pipeline.add_new_step(PrintDataframe(verbose=1), "print_df_1")
+        self.pipeline.add_new_step(TextPrinter(f"Starting to group by factors: {self.pipeline._split_factors}", verbose=1), "print_text_1")
+        self.pipeline.add_new_step(GroupDataframe(groupby=self.pipeline._split_factors), "group_df")
+        self.pipeline.add_new_step(PrintDataframe(verbose=1), "print_df_2")
+        
         self.pipeline.change_estimator(DummyRegressor())
         self.pipeline.run()
         

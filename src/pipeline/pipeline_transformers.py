@@ -91,6 +91,19 @@ class ColumnKeeper(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         return self
+  
+    
+class GroupDataframe(BaseEstimator, TransformerMixin):
+    def __init__(self, groupby):
+        self.factors = groupby
+
+    def transform(self, X):
+        X_factors = X.groupby(self.factors).agg(lambda a: np.nan).reset_index()[self.factors]
+        X = pd.merge(X_factors, X, on=self.factors)
+        return X
+
+    def fit(self, X, y=None):
+        return self
 
 
 # Custom Transformer that drops columns passed as argument
