@@ -50,12 +50,14 @@ from sklearn.pipeline import Pipeline
 from tqdm import tqdm
 
 
-def custom_cross_validation(pipeline: Pipeline, df, factors, target, train_size=0.75, shuffle=True, cv=5):
+def custom_cross_validation(pipeline: Pipeline, df, factors, target, train_size=0.75, shuffle=True, cv=5, verbose=1):
     """
     Like cross_validation, but keeps encoders together: the split is on 'factors'.
     """
+    # check if tqdm should be disabled
+    disable_tqdm = (verbose == 0)
     validation_performance_scores = {}
-    for i in tqdm(range(cv)):
+    for i in tqdm(range(cv), disable=disable_tqdm):
         X_train, X_test, y_train, y_test = custom_train_test_split(df, factors, target, train_size=train_size, shuffle=shuffle, random_state=i)
         
         new_index = "encoder"

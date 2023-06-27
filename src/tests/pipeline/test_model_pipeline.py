@@ -88,7 +88,7 @@ class TestModelPipeline(unittest.TestCase):
             "estimator__strategy": ["mean", "median"],
         }
         
-        self.pipeline = ModelPipeline(df, evaluation=EvaluationType.GRID_SEARCH, param_grid=param_grid, verbose_level=1, n_folds=1)
+        self.pipeline = ModelPipeline(df, evaluation=EvaluationType.GRID_SEARCH, param_grid=param_grid, verbose_level=0, n_folds=1)
         self.pipeline.clear_steps()
         
         self.pipeline.change_estimator(DummyRegressor())

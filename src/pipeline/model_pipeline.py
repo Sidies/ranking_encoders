@@ -79,12 +79,6 @@ class ModelPipeline:
         is_regression = False
         if is_regressor(self._pipeline.named_steps['estimator']):
             is_regression = True
-            performance_metrics = {
-                'rmse': 'neg_root_mean_squared_error',
-                'mae': 'neg_mean_absolute_error',
-                'r2': 'r2',
-                #'spearman': make_scorer(evaluate_regression.average_spearman, greater_is_better=True)
-            }
         elif is_classifier(self._pipeline.named_steps['estimator']):
             performance_metrics = {
                     'mcc': make_scorer(matthews_corrcoef),
@@ -114,6 +108,7 @@ class ModelPipeline:
                 self._validation_performance_scores['validation_mae'] = [mean_absolute_error(y_test, y_pred)]
                 self._validation_performance_scores['validation_r2'] = [r2_score(y_test, y_pred)]
 
+                # use average spearman metric
                 new_index = "encoder"
                 y_pred = pd.Series(self._pipeline.fit(X_train, y_train).predict(X_test), index=y_test.index, name="cv_score_pred")
                 df_pred = pd.concat([X_test, y_test, y_pred], axis=1)
@@ -126,17 +121,7 @@ class ModelPipeline:
         elif self._evaluation == EvaluationType.CROSS_VALIDATION:
             X_train, y_train = self._split_target(self._df, self._target)
             self._pipeline.fit(X_train, y_train)
-            
-            if self._split_factors == []:
-                self._validation_performance_scores = cross_validate(
-                    self._pipeline,
-                    X_train,
-                    y_train,
-                    scoring=performance_metrics,
-                    cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-                )
-            else: 
-                self._validation_performance_scores = evaluate_regression.custom_cross_validation(self._pipeline, self._df, self._split_factors, self._target, cv=self._n_folds)
+            self._validation_performance_scores = evaluate_regression.custom_cross_validation(self._pipeline, self._df, self._split_factors, self._target, cv=self._n_folds, verbose=self._verbose_level)
             
         elif self._evaluation == EvaluationType.GRID_SEARCH:   
             X_train, y_train = self._split_target(self._df, self._target)    
@@ -152,14 +137,24 @@ class ModelPipeline:
         if self._verbose_level > 0 and self._validation_performance_scores != {}:
             print("Evaluation metrics:") 
             # print the evaluation metrics
-            if self._evaluation == EvaluationType.GRID_SEARCH or self._evaluation == EvaluationType.CROSS_VALIDATION:
+            if self._evaluation == EvaluationType.CROSS_VALIDATION:
                 for metric, value in self._validation_performance_scores.items():
-                    output = metric + ': ' + (str(round(value, 4)))
+                    if isinstance(value, float) or isinstance(value, int):
+                        output = metric + ': ' + (str(round(value, 4)))
+                    else:
+                        output = metric + ': ' + str(value)
                     print("    " + output)
                 
                 # print average of all folds
                 print("    average of all folds: " + str(round(np.mean(list(self._validation_performance_scores.values())), 4)) + ' [std=' 
                         + str(round((np.std(list(self._validation_performance_scores.values()))), 4)) + ']')
+            elif self._evaluation == EvaluationType.GRID_SEARCH:
+                for metric, value in self._validation_performance_scores.items():
+                    if isinstance(value, float) or isinstance(value, int):
+                        output = metric + ': ' + (str(round(value, 4)))
+                    else:
+                        output = metric + ': ' + str(value)
+                    print("    " + output)
             else:
                 for metric, values in {**self._validation_performance_scores}.items():
                     output = metric + ': ' \
@@ -385,52 +380,16 @@ class ModelPipeline:
         n_jobs: int
             The number of jobs to run in parallel
         """        
-        print("Performing grid search") if self._verbose_level > 0 else None     
+        print("Performing grid search") if self._verbose_level > 0 else None             
+        validation_performance_scores = {}
         
-        scoring = make_scorer(evaluate_regression.average_spearman, greater_is_better=True)
+        results, best_params, max_score = custom_grid_search(self._pipeline, self._df, self._param_grid, self._split_factors, self._target, cv=self._n_folds, ParallelUnits=1, verbose=self._verbose_level)
         
-        self._validation_performance_scores = {}
-        if self._split_factors == []:
-            grid_search = GridSearchCV(self._pipeline, 
-                                   param_grid, 
-                                   scoring=scoring, 
-                                   cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42), 
-                                   n_jobs=n_jobs, 
-                                   verbose=self._verbose_level)    
-            grid_search.fit(X_train, y_train)
-            self._pipeline = grid_search.best_estimator_
-            
-            # print the best parameters
-            if self._verbose_level > 0:
-                print("Best parameters:")
-                for param, value in grid_search.best_params_.items():
-                    output = param + ': ' + str(value)
-                    print("    " + output)
-                
-            # select validation scores            
-            for metric, values in {**grid_search.cv_results_}.items():
-                '''if metric.startswith('split'):
-                    self._validation_performance_scores[metric] = values'''
-                if metric.startswith('mean'):
-                    self._validation_performance_scores[metric] = [values[grid_search.best_index_]]
-                elif metric.startswith('std'):
-                    self._validation_performance_scores[metric] = [values[grid_search.best_index_]]
-            # sort the dictionary
-            self._validation_performance_scores = dict(sorted(self._validation_performance_scores.items()))
-            
-        else: 
-            results, best_params, max_score = custom_grid_search(self._pipeline, self._df, self._param_grid, self._split_factors, self._target, cv=self._n_folds, ParallelUnits=1)
-            
-            print(f"Best score: {max_score}")
-            print(f"Best params: {best_params}")
-            print(f"Results: {results}")
+        validation_performance_scores["best_score"] = max_score 
+        validation_performance_scores["best_params"] = best_params
+        validation_performance_scores["results_per_parameter"] = results        
         
-        
-        print("Finished performing grid search") if self._verbose_level > 0 else None
-        
-        
-        
-        return self._validation_performance_scores
+        return validation_performance_scores
     
     
     def _split_target(self, df, target):

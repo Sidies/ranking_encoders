@@ -9,31 +9,33 @@ from src.pipeline.evaluation.evaluate_regression import get_rankings, average_sp
 from sklearn.pipeline import Pipeline
 
 
-def custom_grid_search(pipeline: Pipeline, df, GridSearchParams, split_factors, target:str, cv=5, train_size=0.75, ParallelUnits=1):
+def custom_grid_search(pipeline: Pipeline, df, GridSearchParams, split_factors, target:str, cv=5, train_size=0.75, ParallelUnits=1, verbose=1):
     """
     Perform a grid search on the given model using the specified parameters,
     returning the results, the best parameters, and the best score.
 
     Parameters
     ----------
-    Model : sklearn model
-        The model to perform the grid search on
-    X : array-like, shape (n_samples, n_features)
-        The training input samples
-    y : array-like, shape (n_samples,)
-        The target values
+    pipeline : sklearn.pipeline.Pipeline
+        The pipeline to perform the grid search on
+    df : pandas.DataFrame
+        The input data as a pandas DataFrame
     GridSearchParams : dict
-        The parameters to search over, with keys as the parameter names and
-        values as a list of possible values
+        A dictionary of hyperparameters to search over, where the keys are the
+        names of the hyperparameters and the values are lists of possible values
+    split_factors : list of str
+        The column names to use for splitting the data into training and test sets
+    target : str
+        The name of the target variable column
     cv : int, optional (default=5)
         The number of cross-validation splits to perform
+    train_size : float, optional (default=0.75)
+        The proportion of the data to use for training
     ParallelUnits : int, optional (default=1)
         The number of parallel workers to use. If -1, use all available CPU cores
-    error_metrics : str, optional (default="mse")
-        The error metric to use when determining the best parameters. Can be
-        one of "mae", "mse", "rmse", or "r2"
-    random_state : int, optional (default=None)
-        Seed for random number generator
+    verbose : int, optional (default=1)
+        The verbosity level of the output. Set to 0 for no output, 1 for some output,
+        and 2 for detailed output.
 
     Returns
     -------
@@ -50,26 +52,6 @@ def custom_grid_search(pipeline: Pipeline, df, GridSearchParams, split_factors, 
     # Train the model using the specified parameters and calculate the error
     def process_param_set(params, X_train, X_test, y_train, y_test, pipeline:Pipeline, split_factors, target):
 
-        """
-        Train the model using the specified parameters and calculate the error.
-
-        Parameters
-        ----------
-        args : tuple
-            A tuple containing the parameters, input data, target data, error metric,
-            train indices, and test indices
-        Model : custom model
-            The model to train
-        error_metrics_dict : dict
-            A dictionary mapping error metric names to their corresponding functions
-
-        Returns
-        -------
-        tuple
-            A tuple of the parameters and the calculated error
-
-        """
-        
         # set the parameters
         pipeline.set_params(**params)
 
@@ -94,6 +76,10 @@ def custom_grid_search(pipeline: Pipeline, df, GridSearchParams, split_factors, 
     MaxScore = -sys.maxsize
     BestParams = {}
     ParamSets = [dict(zip(Keys, values)) for values in itertools.product(*GridSearchParams.values())]
+    
+    # check if tqdm should be disabled
+    disable_tqdm = (verbose == 0)
+        
 
     # Check the number of parallel units
     if ParallelUnits == -1:
@@ -104,11 +90,11 @@ def custom_grid_search(pipeline: Pipeline, df, GridSearchParams, split_factors, 
     # Start the thread pool executor
     try:
         with ThreadPoolExecutor(max_workers=ParallelUnits) as executor:
-            for params in tqdm(ParamSets):
+            for params in tqdm(ParamSets, disable=disable_tqdm):
                 total_error = 0
                 futures = []
 
-                for i in tqdm(range(cv)):
+                for i in tqdm(range(cv), disable=disable_tqdm):
                     X_train, X_test, y_train, y_test = custom_train_test_split(df, split_factors, target, train_size, random_state=i)
                     future = executor.submit(process_param_set,
                                              params, X_train, X_test, y_train, y_test, pipeline, split_factors, target)
