@@ -36,7 +36,7 @@ def run_pipeline(args):
     pipeline = pipeline_factory.create_pipeline(X_train=train_df,
                                                 model_type=args.pipeline_type,
                                                 verbose_level=1,
-                                                evaluation=EvaluationType.BASIC,
+                                                evaluation=EvaluationType.CROSS_VALIDATION,
                                                 X_test=test_df, )
 
     pipeline.run()

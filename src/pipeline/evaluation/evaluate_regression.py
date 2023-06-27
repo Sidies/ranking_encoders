@@ -46,59 +46,28 @@ import warnings
 from scipy.stats import ConstantInputWarning, spearmanr
 from sklearn.model_selection import train_test_split
 from typing import Iterable
-from sklearn.model_selection import BaseCrossValidator, BaseShuffleSplit
+from sklearn.pipeline import Pipeline
+from tqdm import tqdm
 
-class CustomSplit2(BaseShuffleSplit):
-    def __init__(self, factors, n_splits=5, train_size=0.75, random_state=None):
-        self.factors = factors
-        self.n_splits = n_splits
-        self.train_size = train_size
-        self.random_state = random_state
-
-    def _iter_indices(self, X, y=None, groups=None):
-        print(f"Size of X: {len(X)}")
-        X_factors = X.groupby(self.factors).agg(lambda a: np.nan).reset_index()[self.factors]
-        for i in range(self.n_splits):
-            print(f"Split {i}")
-            factors_train, factors_test = train_test_split(X_factors, stratify=X_factors.dataset,
-                                                           train_size=self.train_size,
-                                                           random_state=self.random_state)
-            
-            print(f"Factors train: {len(factors_train)}")
-            print(f"Factors test: {len(factors_test)}")
-            
-            train_idx = X[self.factors].isin(factors_train)[X[self.factors].isin(factors_train)].index
-            print(f"Train idx: {len(train_idx)}")
-            test_idx = X[self.factors].isin(factors_test)[X[self.factors].isin(factors_test)].index
-            print(f"Test idx: {len(test_idx)}")
-            yield train_idx, test_idx
-
-    def get_n_splits(self, X=None, y=None, groups=None):
-        return self.n_splits
-    
-
-class CustomSplit(BaseCrossValidator):
-    def __init__(self, factors, train_size=0.75, shuffle=True, random_state=0):
-        self.factors = factors
-        self.train_size = train_size
-        self.shuffle = shuffle
-        self.random_state = random_state
-
-    def split(self, X, y=None, groups=None):
-        X_factors = X.groupby(self.factors).agg(lambda a: np.nan).reset_index()[self.factors]
-        factors_train, factors_test = train_test_split(X_factors, stratify=X_factors.dataset,
-                                                       train_size=self.train_size, shuffle=self.shuffle,
-                                                       random_state=self.random_state)
-
-        for i in range(len(factors_train)):
-            train_idx = X[self.factors].isin(factors_train.iloc[i])[X[self.factors].isin(factors_train.iloc[i])].index
-            test_idx = X[self.factors].isin(factors_test.iloc[i])[X[self.factors].isin(factors_test.iloc[i])].index
-            yield train_idx, test_idx
-
-    def get_n_splits(self, X:pd.DataFrame=None, y=None, groups=None):
-        #return 1
-        return X[self.factors].nunique()
-
+def custom_cross_validation(pipeline: Pipeline, df, factors, target, train_size=0.75, shuffle=True, cv=5):
+    """
+    Like cross_validation, but keeps encoders together: the split is on 'factors'.
+    """
+    validation_performance_scores = {}
+    for i in tqdm(range(cv)):
+        X_train, X_test, y_train, y_test = custom_train_test_split(df, factors, target, train_size=train_size, shuffle=shuffle, random_state=i)
+        
+        new_index = "encoder"
+        y_pred = pd.Series(pipeline.fit(X_train, y_train).predict(X_test), index=y_test.index, name="cv_score_pred")
+        df_pred = pd.concat([X_test, y_test, y_pred], axis=1)        
+        
+        # ---- convert to rankings and evaluate
+        rankings_test = get_rankings(df_pred, factors=factors, new_index=new_index, target=target)
+        rankings_pred = get_rankings(df_pred, factors=factors, new_index=new_index, target=target + "_pred")
+        validation_performance_scores['validation_average_spearman_fold_' + str(i)] = average_spearman(rankings_test, rankings_pred)
+              
+    return validation_performance_scores  
+        
 
 def custom_train_test_split(df: pd.DataFrame, factors, target, train_size=0.75, shuffle=True, random_state=0):
     """
@@ -159,9 +128,9 @@ def spearman_rho(x: Iterable, y: Iterable, nan_policy="omit"):
 
 
 def list_spearman(rf1: pd.DataFrame, rf2: pd.DataFrame) -> np.array:
-    
+        
     if not rf1.columns.equals(rf2.columns) or not rf1.index.equals(rf2.index):
-        raise ValueError("The two input dataframes should have the same index and columns.")
+         raise ValueError("The two input dataframes should have the same index and columns.")
 
     return np.array([
         spearman_rho(r1, r2, nan_policy="omit") for (_, r1), (_, r2) in zip(rf1.items(), rf2.items())

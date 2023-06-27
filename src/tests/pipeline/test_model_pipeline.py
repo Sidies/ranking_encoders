@@ -69,18 +69,18 @@ class TestModelPipeline(unittest.TestCase):
         
         
     def test_cross_validate(self):
-        print("Starting cross validation test")
         df = config.load_traindata_for_regression()
         
-        self.pipeline = ModelPipeline(df, evaluation=EvaluationType.BASIC)
+        self.pipeline = ModelPipeline(df, evaluation=EvaluationType.CROSS_VALIDATION, verbose_level=1, n_folds=1)
         self.pipeline.clear_steps()
-        self.pipeline.add_new_step(PrintDataframe(verbose=1), "print_df_1")
-        self.pipeline.add_new_step(TextPrinter(f"Starting to group by factors: {self.pipeline._split_factors}", verbose=1), "print_text_1")
-        self.pipeline.add_new_step(GroupDataframe(groupby=self.pipeline._split_factors), "group_df")
-        self.pipeline.add_new_step(PrintDataframe(verbose=1), "print_df_2")
+        # self.pipeline.add_new_step(PrintDataframe(verbose=1), "print_df_1")
+        # self.pipeline.add_new_step(TextPrinter(f"Starting to group by factors: {self.pipeline._split_factors}", verbose=1), "print_text_1")
+        # self.pipeline.add_new_step(GroupDataframe(groupby=self.pipeline._split_factors), "group_df")
+        #self.pipeline.add_new_step(PrintDataframe(verbose=1), "print_df_2")
         
         self.pipeline.change_estimator(DummyRegressor())
         self.pipeline.run()
+        
         
         
 if __name__ == '__main__':

@@ -5,7 +5,7 @@ from joblib import dump, load
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef, make_scorer, mean_absolute_error, \
     mean_squared_error, r2_score
-from sklearn.model_selection import cross_validate, train_test_split
+from sklearn.model_selection import cross_validate, train_test_split, KFold
 from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import GridSearchCV
 from sklearn.base import is_classifier, is_regressor
@@ -31,7 +31,8 @@ class ModelPipeline:
                  evaluation:EvaluationType=EvaluationType.BASIC,
                  X_test:pd.DataFrame=None,                  
                  split_factors=["dataset", "model", "tuning", "scoring"],
-                 param_grid=[]):
+                 param_grid=[],
+                 n_folds=5):
         """
         Initialize the data pipeline
 
@@ -52,6 +53,8 @@ class ModelPipeline:
             The factors to use for splitting the data into training and validation data
         param_grid: dict
             The parameter grid to use for grid search. Only used if evaluation is "grid_search"
+        n_folds: int
+            The number of folds to use for cross validation. Only used if evaluation is "cross_validation"
         """        
         self._pipeline = Pipeline(steps=steps)        
         self._df = df
@@ -61,6 +64,7 @@ class ModelPipeline:
         self.X_test = X_test
         self._split_factors = split_factors
         self._param_grid = param_grid
+        self.cv = n_folds
             
     
     # start the pipeline
@@ -131,13 +135,7 @@ class ModelPipeline:
                     cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
                 )
             else: 
-                self._validation_performance_scores = cross_validate(
-                    self._pipeline,
-                    X_train,
-                    y_train,
-                    scoring=performance_metrics,
-                    cv=evaluate_regression.CustomSplit2(factors=self._split_factors, train_size=0.75)
-                )
+                self._validation_performance_scores = evaluate_regression.custom_cross_validation(self._pipeline, self._df, self._split_factors, self._target, cv=self.cv)
             
         elif self._evaluation == EvaluationType.GRID_SEARCH:   
             X_train, y_train = self._split_target(self._df, self._target)    
@@ -153,10 +151,14 @@ class ModelPipeline:
         if self._verbose_level > 0 and self._validation_performance_scores != {}:
             print("Evaluation metrics:") 
             # print the evaluation metrics
-            if self._evaluation == "grid_search":
+            if self._evaluation == EvaluationType.GRID_SEARCH or self._evaluation == EvaluationType.CROSS_VALIDATION:
                 for metric, value in self._validation_performance_scores.items():
-                    output = metric + ': ' + ', '.join(str(round(v, 4)) for v in value)
+                    output = metric + ': ' + (str(round(value, 4)))
                     print("    " + output)
+                
+                # print average of all folds
+                print("    average of all folds: " + str(round(np.mean(list(self._validation_performance_scores.values())), 4)) + ' [std=' 
+                        + str(round((np.std(list(self._validation_performance_scores.values()))), 4)) + ']')
             else:
                 for metric, values in {**self._validation_performance_scores}.items():
                     output = metric + ': ' \
@@ -367,7 +369,7 @@ class ModelPipeline:
             
         return is_initialized
     
-    def _do_grid_search(self, X_train:pd.DataFrame, y_train, param_grid, cv=5, n_jobs=-1):
+    def _do_grid_search(self, X_train:pd.DataFrame, y_train, param_grid, cv=5, n_jobs=-1, scoring=None):
         """
         Perform grid search on the pipeline
         
@@ -386,18 +388,20 @@ class ModelPipeline:
         
         scoring = make_scorer(evaluate_regression.average_spearman, greater_is_better=True)
         
+        
         if self._split_factors == []:
             grid_search = GridSearchCV(self._pipeline, 
                                    param_grid, 
                                    scoring=scoring, 
-                                   cv=5, 
+                                   cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42), 
                                    n_jobs=n_jobs, 
                                    verbose=self._verbose_level)    
         else: 
+            cv = KFold(n_splits=5, shuffle=True, random_state=42)
             grid_search = GridSearchCV(self._pipeline, 
                                     param_grid, 
                                     scoring=scoring, 
-                                    cv=evaluate_regression.CustomSplit(factors=self._split_factors, train_size=0.75), 
+                                    cv=cv, 
                                     n_jobs=n_jobs, 
                                     verbose=self._verbose_level)
         grid_search.fit(X_train, y_train)
