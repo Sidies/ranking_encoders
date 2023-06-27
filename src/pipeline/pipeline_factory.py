@@ -31,6 +31,7 @@ class PipelineFactory:
                         target:str="cv_score",
                         split_factors=["dataset", "model", "tuning", "scoring"],
                         param_grid=[],
+                        n_folds=5,
                         **kwargs):
         """
         Create a ModelPipeline of the specified type.
@@ -95,5 +96,6 @@ class PipelineFactory:
                              target=target,
                              split_factors=split_factors,
                              param_grid=param_grid,
+                             n_folds=n_folds,
                              **kwargs)
         

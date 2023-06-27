@@ -29,7 +29,7 @@ class TestModelPipeline(unittest.TestCase):
                                                          target="cv_score", 
                                                          model_type=ModelType.REGRE_BASELINE,
                                                          X_test=test_df,
-                                                         verbose_level=1)
+                                                         verbose_level=0)
         
         pipeline.run()
         
@@ -37,6 +37,21 @@ class TestModelPipeline(unittest.TestCase):
         save_path = config.DATA_DIR / 'processed/regression_tyrell_prediction.csv'
         self.assertTrue(os.path.exists(save_path))
         
+    def test_grid_search_pipeline(self):
+        df = config.load_traindata_for_regression()
+        
+        param_grid = {
+            "estimator__strategy": ["mean", "median"],
+        }
+        
+        pipeline = self.pipeline_factory.create_pipeline(df, 
+                                                         model_type=ModelType.REGRE_BASELINE,
+                                                         evaluation=EvaluationType.GRID_SEARCH,
+                                                         verbose_level=1,
+                                                         param_grid=param_grid,
+                                                         n_folds=1)
+        
+        pipeline.run()
         
 if __name__ == '__main__':
     unittest.main()
