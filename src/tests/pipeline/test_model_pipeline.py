@@ -12,7 +12,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.dummy import DummyRegressor, DummyClassifier
 from src.pipeline.pipeline_transformers import PrintDataframe, GroupDataframe, TextPrinter
-from src.pipeline.evaluation.evaluate_regression import BaseShuffleSplit, custom_train_test_split
+from src.pipeline.evaluation.evaluate_regression import custom_train_test_split
 
 class TestModelPipeline(unittest.TestCase):
     
@@ -71,7 +71,7 @@ class TestModelPipeline(unittest.TestCase):
     def test_cross_validate(self):
         df = config.load_traindata_for_regression()
         
-        self.pipeline = ModelPipeline(df, evaluation=EvaluationType.CROSS_VALIDATION, verbose_level=1, n_folds=1)
+        self.pipeline = ModelPipeline(df, evaluation=EvaluationType.CROSS_VALIDATION, verbose_level=0, n_folds=1)
         self.pipeline.clear_steps()
         # self.pipeline.add_new_step(PrintDataframe(verbose=1), "print_df_1")
         # self.pipeline.add_new_step(TextPrinter(f"Starting to group by factors: {self.pipeline._split_factors}", verbose=1), "print_text_1")
@@ -80,6 +80,20 @@ class TestModelPipeline(unittest.TestCase):
         
         self.pipeline.change_estimator(DummyRegressor())
         self.pipeline.run()
+        
+    def test_grid_search(self):
+        df = config.load_traindata_for_regression()
+        
+        param_grid = {
+            "estimator__strategy": ["mean", "median"],
+        }
+        
+        self.pipeline = ModelPipeline(df, evaluation=EvaluationType.GRID_SEARCH, param_grid=param_grid, verbose_level=1, n_folds=1)
+        self.pipeline.clear_steps()
+        
+        self.pipeline.change_estimator(DummyRegressor())
+        self.pipeline.run()
+        
         
         
         

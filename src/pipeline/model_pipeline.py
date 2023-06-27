@@ -11,6 +11,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.base import is_classifier, is_regressor
 from src.pipeline.evaluation import evaluate_regression
 from src import configuration as config
+from src.pipeline.evaluation.custom_grid_search import custom_grid_search
 
 class EvaluationType(enum.Enum):
     BASIC = "basic"
@@ -64,7 +65,7 @@ class ModelPipeline:
         self.X_test = X_test
         self._split_factors = split_factors
         self._param_grid = param_grid
-        self.cv = n_folds
+        self._n_folds = n_folds
             
     
     # start the pipeline
@@ -135,7 +136,7 @@ class ModelPipeline:
                     cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
                 )
             else: 
-                self._validation_performance_scores = evaluate_regression.custom_cross_validation(self._pipeline, self._df, self._split_factors, self._target, cv=self.cv)
+                self._validation_performance_scores = evaluate_regression.custom_cross_validation(self._pipeline, self._df, self._split_factors, self._target, cv=self._n_folds)
             
         elif self._evaluation == EvaluationType.GRID_SEARCH:   
             X_train, y_train = self._split_target(self._df, self._target)    
@@ -388,7 +389,7 @@ class ModelPipeline:
         
         scoring = make_scorer(evaluate_regression.average_spearman, greater_is_better=True)
         
-        
+        self._validation_performance_scores = {}
         if self._split_factors == []:
             grid_search = GridSearchCV(self._pipeline, 
                                    param_grid, 
@@ -396,37 +397,38 @@ class ModelPipeline:
                                    cv=StratifiedKFold(n_splits=5, shuffle=True, random_state=42), 
                                    n_jobs=n_jobs, 
                                    verbose=self._verbose_level)    
+            grid_search.fit(X_train, y_train)
+            self._pipeline = grid_search.best_estimator_
+            
+            # print the best parameters
+            if self._verbose_level > 0:
+                print("Best parameters:")
+                for param, value in grid_search.best_params_.items():
+                    output = param + ': ' + str(value)
+                    print("    " + output)
+                
+            # select validation scores            
+            for metric, values in {**grid_search.cv_results_}.items():
+                '''if metric.startswith('split'):
+                    self._validation_performance_scores[metric] = values'''
+                if metric.startswith('mean'):
+                    self._validation_performance_scores[metric] = [values[grid_search.best_index_]]
+                elif metric.startswith('std'):
+                    self._validation_performance_scores[metric] = [values[grid_search.best_index_]]
+            # sort the dictionary
+            self._validation_performance_scores = dict(sorted(self._validation_performance_scores.items()))
+            
         else: 
-            cv = KFold(n_splits=5, shuffle=True, random_state=42)
-            grid_search = GridSearchCV(self._pipeline, 
-                                    param_grid, 
-                                    scoring=scoring, 
-                                    cv=cv, 
-                                    n_jobs=n_jobs, 
-                                    verbose=self._verbose_level)
-        grid_search.fit(X_train, y_train)
-        self._pipeline = grid_search.best_estimator_
+            results, best_params, max_score = custom_grid_search(self._pipeline, self._df, self._param_grid, self._split_factors, self._target, cv=self._n_folds, ParallelUnits=1)
+            
+            print(f"Best score: {max_score}")
+            print(f"Best params: {best_params}")
+            print(f"Results: {results}")
+        
         
         print("Finished performing grid search") if self._verbose_level > 0 else None
         
-        # print the best parameters
-        if self._verbose_level > 0:
-            print("Best parameters:")
-            for param, value in grid_search.best_params_.items():
-                output = param + ': ' + str(value)
-                print("    " + output)
-            
-        # select validation scores
-        self._validation_performance_scores = {}
-        for metric, values in {**grid_search.cv_results_}.items():
-            '''if metric.startswith('split'):
-                self._validation_performance_scores[metric] = values'''
-            if metric.startswith('mean'):
-                self._validation_performance_scores[metric] = [values[grid_search.best_index_]]
-            elif metric.startswith('std'):
-                self._validation_performance_scores[metric] = [values[grid_search.best_index_]]
-        # sort the dictionary
-        self._validation_performance_scores = dict(sorted(self._validation_performance_scores.items()))
+        
         
         return self._validation_performance_scores
     
