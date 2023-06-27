@@ -149,16 +149,24 @@ class Node2VecEmbedding(BaseEstimator, TransformerMixin):
 
 
 class Node2VecGraphEmbeddingWithKMeans(BaseEstimator, TransformerMixin):
-    def __init__(self, graph, **kwargs):
+    def __init__(self, graph, dimensions=2, walk_length=20, num_walks=1000, workers=1, **kwargs):
         self.graph = graph
         self.kwargs = kwargs
+        self.dimensions = dimensions
+        self.walk_length = walk_length
+        self.num_walks = num_walks
+        self.workers = workers
 
     def fit(self, X, y=None):
         return self
 
     def transform(self, X):
         graph_embedding = GraphEmbedding(self.graph)
-        model = graph_embedding.node2vec(**self.kwargs)
+        model = graph_embedding.node2vec(dimensions=self.dimensions,
+                                         walk_length=self.walk_length,
+                                         num_walks=self.num_walks,
+                                         workers=self.workers,
+                                         **self.kwargs)
 
         # Get the embeddings.
         node2vec_embeddings = {node: model.wv.get_vector(node) for node in model.wv.index_to_key}
@@ -185,16 +193,26 @@ class Node2VecGraphEmbeddingWithKMeans(BaseEstimator, TransformerMixin):
 
 
 class PoincareEmbedding(BaseEstimator, TransformerMixin):
-    def __init__(self, graph, **kwargs):
+    def __init__(self, graph, epochs=100, batch_size=10, size=2, negative=2, alpha=0.1, **kwargs):
         self.graph = graph
         self.kwargs = kwargs
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.size = size
+        self.negative = negative
+        self.alpha = alpha
 
     def fit(self, X, y=None):
         return self
 
     def transform(self, X):
         graph_embedding = GraphEmbedding(self.graph)
-        model = graph_embedding.poincare(**self.kwargs)
+        model = graph_embedding.poincare(epochs=self.epochs,
+                                         batch_size=self.batch_size,
+                                         size=self.size,
+                                         negative=self.negative,
+                                         alpha=self.alpha, 
+                                         **self.kwargs)
 
         # Get the embeddings.
         poincare_embeddings = {node: model.kv.get_vector(node) for node in model.kv.index_to_key}

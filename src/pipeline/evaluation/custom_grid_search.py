@@ -94,7 +94,7 @@ def custom_grid_search(pipeline: Pipeline, df, GridSearchParams, split_factors, 
                 total_error = 0
                 futures = []
 
-                for i in tqdm(range(cv), disable=disable_tqdm):
+                for i in tqdm(range(cv), disable=disable_tqdm, leave=False):
                     X_train, X_test, y_train, y_test = custom_train_test_split(df, split_factors, target, train_size, random_state=i)
                     future = executor.submit(process_param_set,
                                              params, X_train, X_test, y_train, y_test, pipeline, split_factors, target)

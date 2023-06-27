@@ -21,6 +21,7 @@ class TestModelPipeline(unittest.TestCase):
         # pipeline has a LinearRegression step
         self.assertTrue('estimator' in pipeline.get_pipeline().named_steps)
         
+        
     def test_save_predictions(self):
         train_df = config.load_traindata_for_regression()
         test_df = config.load_testdata_for_regression()
@@ -37,6 +38,7 @@ class TestModelPipeline(unittest.TestCase):
         save_path = config.DATA_DIR / 'processed/regression_tyrell_prediction.csv'
         self.assertTrue(os.path.exists(save_path))
         
+        
     def test_grid_search_pipeline(self):
         df = config.load_traindata_for_regression()
         
@@ -49,7 +51,8 @@ class TestModelPipeline(unittest.TestCase):
                                                          evaluation=EvaluationType.GRID_SEARCH,
                                                          verbose_level=1,
                                                          param_grid=param_grid,
-                                                         n_folds=1)
+                                                         n_folds=2,
+                                                         workers=2)
         
         pipeline.run()
         

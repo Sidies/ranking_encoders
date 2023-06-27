@@ -33,7 +33,8 @@ class ModelPipeline:
                  X_test:pd.DataFrame=None,                  
                  split_factors=["dataset", "model", "tuning", "scoring"],
                  param_grid=[],
-                 n_folds=5):
+                 n_folds=5,
+                 workers=1):
         """
         Initialize the data pipeline
 
@@ -56,6 +57,8 @@ class ModelPipeline:
             The parameter grid to use for grid search. Only used if evaluation is "grid_search"
         n_folds: int
             The number of folds to use for cross validation. Only used if evaluation is "cross_validation"
+        workers: int
+            The number of workers to use for parallel processing
         """        
         self._pipeline = Pipeline(steps=steps)        
         self._df = df
@@ -66,6 +69,7 @@ class ModelPipeline:
         self._split_factors = split_factors
         self._param_grid = param_grid
         self._n_folds = n_folds
+        self._workers = workers
             
     
     # start the pipeline
@@ -383,7 +387,7 @@ class ModelPipeline:
         print("Performing grid search") if self._verbose_level > 0 else None             
         validation_performance_scores = {}
         
-        results, best_params, max_score = custom_grid_search(self._pipeline, self._df, self._param_grid, self._split_factors, self._target, cv=self._n_folds, ParallelUnits=1, verbose=self._verbose_level)
+        results, best_params, max_score = custom_grid_search(self._pipeline, self._df, self._param_grid, self._split_factors, self._target, cv=self._n_folds, ParallelUnits=self._workers, verbose=self._verbose_level)
         
         validation_performance_scores["best_score"] = max_score 
         validation_performance_scores["best_params"] = best_params
