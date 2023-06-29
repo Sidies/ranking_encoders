@@ -91,32 +91,38 @@ def custom_grid_search(pipeline: Pipeline, df, GridSearchParams, split_factors, 
     try:
         with ThreadPoolExecutor(max_workers=ParallelUnits) as executor:
             for params in tqdm(ParamSets, disable=disable_tqdm):
-                total_error = 0
-                futures = []
+                try:
+                    total_error = 0
+                    futures = []
 
-                for i in tqdm(range(cv), disable=disable_tqdm, leave=False):
-                    X_train, X_test, y_train, y_test = custom_train_test_split(df, split_factors, target, train_size, random_state=i)
-                    future = executor.submit(process_param_set,
-                                             params, X_train, X_test, y_train, y_test, pipeline, split_factors, target)
-                    futures.append(future)
+                    for i in tqdm(range(cv), disable=disable_tqdm, leave=False):
+                        X_train, X_test, y_train, y_test = custom_train_test_split(df, split_factors, target, train_size, random_state=i)
+                        future = executor.submit(process_param_set,
+                                                params, X_train, X_test, y_train, y_test, pipeline, split_factors, target)
+                        futures.append(future)
 
-                for future in futures:
-                    _, error = future.result()
-                    total_error += error
+                    for future in futures:
+                        _, error = future.result()
+                        total_error += error
 
-                avg_error = total_error / cv
-                Results.append((params, avg_error))
+                    avg_error = total_error / cv
+                    Results.append((params, avg_error))
 
-                # we try to get the highest score
-                if avg_error > MaxScore:
-                    MaxScore = avg_error
-                    BestParams = params
-                
-
+                    # we try to get the highest score
+                    if avg_error > MaxScore:
+                        MaxScore = avg_error
+                        BestParams = params
+                except Exception as e:
+                    print(e)
+                    
     # Handle keyboard interrupt to stop the execution
     except KeyboardInterrupt:
         print("CTRL+C pressed. Stopping the execution...")
         executor.shutdown(wait=False)
+    except Exception as e:
+        print("An error occurred.")
+        print(e)
+        
 
     # Return the results, best parameters and error
     return Results, BestParams, MaxScore

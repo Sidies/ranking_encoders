@@ -4,7 +4,8 @@ from sklearn.dummy import DummyRegressor
 from sklearn.linear_model import LinearRegression
 from enum import Enum
 from lightgbm import LGBMRegressor
-
+from category_encoders.binary import BinaryEncoder
+from category_encoders.ordinal import OrdinalEncoder
 from src import configuration as config
 from src.features.encoder_utils import load_graph
 from src.pipeline.model_pipeline import ModelPipeline, EvaluationType
@@ -77,10 +78,15 @@ class PipelineFactory:
         elif model_type == "regre_preprocessed" or model_type == ModelType.REGRE_PREPROCESSED:
             pipeline_steps = [
                 ("encoder_transformer", PoincareEmbedding(
-                    load_graph(config.ROOT_DIR / "data/external/graphs/encodings_graph.adjlist")
+                    load_graph(config.ROOT_DIR / "data/external/graphs/encodings_graph.adjlist"),
+                    epochs=500,
+                    batch_size=50,
+                    size=3
                 )),
                 ("dataset_transformer", OpenMLMetaFeatureTransformer()),
-                ("general_transformer", GeneralPurposeEncoderTransformer()),
+                ("general_transformer", GeneralPurposeEncoderTransformer(OrdinalEncoder(), 
+                                                                         BinaryEncoder(), 
+                                                                         BinaryEncoder())),
                 ("estimator", LGBMRegressor())
             ]
             

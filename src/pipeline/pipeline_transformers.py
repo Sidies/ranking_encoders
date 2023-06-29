@@ -120,16 +120,24 @@ class ColumnDropper(BaseEstimator, TransformerMixin):
 
 
 class Node2VecEmbedding(BaseEstimator, TransformerMixin):
-    def __init__(self, graph, **kwargs):
+    def __init__(self, graph,dimensions=2, walk_length=20, num_walks=1000, workers=1, **kwargs):
         self.graph = graph
         self.kwargs = kwargs
+        self.dimensions = dimensions
+        self.walk_length = walk_length
+        self.num_walks = num_walks
+        self.workers = workers
 
     def fit(self, X, y=None):
         return self
 
     def transform(self, X):
         graph_embedding = GraphEmbedding(self.graph)
-        model = graph_embedding.node2vec(**self.kwargs)
+        model = graph_embedding.node2vec(dimensions=self.dimensions,
+                                         walk_length=self.walk_length,
+                                         num_walks=self.num_walks,
+                                         workers=self.workers,
+                                         **self.kwargs)
 
         # Get the embeddings.
         n2v_embeddings = {node: model.wv.get_vector(node) for node in model.wv.index_to_key}

@@ -391,7 +391,8 @@ class ModelPipeline:
         
         validation_performance_scores["best_score"] = max_score 
         validation_performance_scores["best_params"] = best_params
-        validation_performance_scores["results_per_parameter"] = results        
+        if self._verbose_level > 2:
+            validation_performance_scores["results_per_parameter"] = results
         
         return validation_performance_scores
     
