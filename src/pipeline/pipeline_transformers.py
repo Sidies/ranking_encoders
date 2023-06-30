@@ -201,7 +201,7 @@ class Node2VecGraphEmbeddingWithKMeans(BaseEstimator, TransformerMixin):
 
 
 class PoincareEmbedding(BaseEstimator, TransformerMixin):
-    def __init__(self, graph, epochs=100, batch_size=10, size=2, negative=2, alpha=0.1, **kwargs):
+    def __init__(self, graph, epochs=100, batch_size=10, size=2, negative=2, alpha=0.1, encoder=None, **kwargs):
         self.graph = graph
         self.kwargs = kwargs
         self.epochs = epochs
@@ -209,35 +209,44 @@ class PoincareEmbedding(BaseEstimator, TransformerMixin):
         self.size = size
         self.negative = negative
         self.alpha = alpha
+        self.encoder = encoder
 
     def fit(self, X, y=None):
-        return self
-
-    def transform(self, X):
         graph_embedding = GraphEmbedding(self.graph)
         model = graph_embedding.poincare(epochs=self.epochs,
                                          batch_size=self.batch_size,
                                          size=self.size,
                                          negative=self.negative,
-                                         alpha=self.alpha, 
+                                         alpha=self.alpha,
                                          **self.kwargs)
 
         # Get the embeddings.
-        poincare_embeddings = {node: model.kv.get_vector(node) for node in model.kv.index_to_key}
+        self._poincare_embeddings = {node: model.kv.get_vector(node) for node in model.kv.index_to_key}
 
-        X['poincare_embedding_dim1'] = 0
-        X['poincare_embedding_dim2'] = 0
+        if self.encoder:
+            self.encoder.fit(X['encoder'], y)
 
-        # print(type(X))
-        for i, row in X.iterrows():
+        return self
+
+    def transform(self, X):
+        X_new = X
+        X_new['poincare_embedding_dim1'] = 0
+        X_new['poincare_embedding_dim2'] = 0
+
+        for i, row in X_new.iterrows():
             node = row['encoder']
-            embedding = poincare_embeddings[node]
-            X.at[i, 'poincare_embedding_dim1'] = embedding[0]
-            X.at[i, 'poincare_embedding_dim2'] = embedding[1]
+            embedding = self._poincare_embeddings[node]
+            X_new.at[i, 'poincare_embedding_dim1'] = embedding[0]
+            X_new.at[i, 'poincare_embedding_dim2'] = embedding[1]
 
-        X = X.drop(columns=['encoder'])
+        X_new = X_new.drop(columns=['encoder'])
+        if self.encoder:
+            X_new = pd.concat([
+                X_new,
+                self.encoder.transform(X['encoder'])
+            ], axis=1)
 
-        return X
+        return X_new
 
 
 def get_features_to_drop_by_nan_threshold(df, threshold):

@@ -1,11 +1,18 @@
+import category_encoders.target_encoder
 import pandas as pd
-from sklearn.dummy import DummyClassifier
-from sklearn.dummy import DummyRegressor
-from sklearn.linear_model import LinearRegression
 from enum import Enum
-from lightgbm import LGBMRegressor
+
 from category_encoders.binary import BinaryEncoder
+from category_encoders.one_hot import OneHotEncoder
 from category_encoders.ordinal import OrdinalEncoder
+from category_encoders.target_encoder import TargetEncoder
+from lightgbm import LGBMRegressor
+from sklearn.dummy import DummyClassifier, DummyRegressor
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.tree import DecisionTreeRegressor
+
 from src import configuration as config
 from src.features.encoder_utils import load_graph
 from src.pipeline.model_pipeline import ModelPipeline, EvaluationType
@@ -17,6 +24,8 @@ class ModelType(Enum):
     CLASS_BASELINE = "class_baseline"
     LINEAR_REGRESSION = "linear_regression"
     REGRE_PREPROCESSED = "regre_preprocessed"
+    REGRE_TEST = "regre_test"
+    REGRE_NO_SEARCH = "regre_no_search"
      
 
 class PipelineFactory:
@@ -83,11 +92,69 @@ class PipelineFactory:
                     batch_size=50,
                     size=3
                 )),
-                ("dataset_transformer", OpenMLMetaFeatureTransformer()),
-                ("general_transformer", GeneralPurposeEncoderTransformer(OrdinalEncoder(), 
-                                                                         BinaryEncoder(), 
-                                                                         BinaryEncoder())),
+                ("dataset_transformer", OpenMLMetaFeatureTransformer(
+                    nan_ratio_feature_drop_threshold=0.4,
+                    imputer=SimpleImputer(strategy='mean'),
+                    scaler=StandardScaler(),
+                    expected_pca_variance=1,
+                    encoder=TargetEncoder()
+                )),
+                ("general_transformer", GeneralPurposeEncoderTransformer(
+                    OrdinalEncoder(),
+                    BinaryEncoder(),
+                    BinaryEncoder()
+                )),
                 ("estimator", LGBMRegressor())
+            ]
+
+        elif model_type == "regre_test" or model_type == ModelType.REGRE_TEST:
+            pipeline_steps = [
+                ("encoder_transformer", PoincareEmbedding(
+                    load_graph(config.ROOT_DIR / "data/external/graphs/encodings_graph.adjlist"),
+                    epochs=500,
+                    batch_size=50,
+                    size=3,
+                    encoder=category_encoders.one_hot.OneHotEncoder()
+
+                )),
+                ("dataset_transformer", OpenMLMetaFeatureTransformer(
+                    nan_ratio_feature_drop_threshold=0.25,
+                    imputer=SimpleImputer(strategy='mean'),
+                    scaler=StandardScaler(),
+                    expected_pca_variance=0.6,
+                    encoder=None
+                )),
+                ("general_transformer", GeneralPurposeEncoderTransformer(
+                    OrdinalEncoder(),
+                    OrdinalEncoder(),
+                    OrdinalEncoder()
+                )),
+                ("estimator", DecisionTreeRegressor())
+            ]
+
+        elif model_type == "regre_no_search" or model_type == ModelType.REGRE_NO_SEARCH:
+            pipeline_steps = [
+                ("encoder_transformer", PoincareEmbedding(
+                    load_graph(config.ROOT_DIR / "data/external/graphs/encodings_graph.adjlist"),
+                    epochs=500,
+                    batch_size=50,
+                    size=3,
+                    encoder=category_encoders.one_hot.OneHotEncoder()
+
+                )),
+                ("dataset_transformer", OpenMLMetaFeatureTransformer(
+                    nan_ratio_feature_drop_threshold=0.25,
+                    imputer=SimpleImputer(strategy='mean'),
+                    scaler=StandardScaler(),
+                    expected_pca_variance=0.6,
+                    encoder=None
+                )),
+                ("general_transformer", GeneralPurposeEncoderTransformer(
+                    OneHotEncoder(),
+                    TargetEncoder(),
+                    TargetEncoder()
+                )),
+                ("estimator", DecisionTreeRegressor())
             ]
             
         else:

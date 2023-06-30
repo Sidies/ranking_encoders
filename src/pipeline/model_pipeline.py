@@ -126,9 +126,9 @@ class ModelPipeline:
             X_train, y_train = self._split_target(self._df, self._target)
             self._pipeline.fit(X_train, y_train)
             self._validation_performance_scores = evaluate_regression.custom_cross_validation(self._pipeline, self._df, self._split_factors, self._target, cv=self._n_folds, verbose=self._verbose_level)
-            
-        elif self._evaluation == EvaluationType.GRID_SEARCH:   
-            X_train, y_train = self._split_target(self._df, self._target)    
+
+        elif self._evaluation == EvaluationType.GRID_SEARCH:
+            X_train, y_train = self._split_target(self._df, self._target)
             self._validation_performance_scores = self._do_grid_search(X_train, y_train, param_grid=self._param_grid)
             
         else:
@@ -368,11 +368,11 @@ class ModelPipeline:
             is_initialized = False
             
         return is_initialized
-    
-    def _do_grid_search(self, X_train:pd.DataFrame, y_train, param_grid, cv=5, n_jobs=-1, scoring=None):
+
+    def _do_grid_search(self, X_train: pd.DataFrame, y_train, param_grid, cv=5, n_jobs=-1, scoring=None):
         """
         Perform grid search on the pipeline
-        
+
         Parameters
         ----------
         param_grid: dict
@@ -383,17 +383,19 @@ class ModelPipeline:
             The number of folds for cross validation
         n_jobs: int
             The number of jobs to run in parallel
-        """        
-        print("Performing grid search") if self._verbose_level > 0 else None             
+        """
+        print("Performing grid search") if self._verbose_level > 0 else None
         validation_performance_scores = {}
-        
-        results, best_params, max_score = custom_grid_search(self._pipeline, self._df, self._param_grid, self._split_factors, self._target, cv=self._n_folds, ParallelUnits=self._workers, verbose=self._verbose_level)
-        
-        validation_performance_scores["best_score"] = max_score 
+
+        results, best_params, max_score = custom_grid_search(self._pipeline, self._df, self._param_grid,
+                                                             self._split_factors, self._target, cv=self._n_folds,
+                                                             ParallelUnits=self._workers, verbose=self._verbose_level)
+
+        validation_performance_scores["best_score"] = max_score
         validation_performance_scores["best_params"] = best_params
         if self._verbose_level > 2:
             validation_performance_scores["results_per_parameter"] = results
-        
+
         return validation_performance_scores
     
     
