@@ -1,15 +1,17 @@
 import pandas as pd
 import numpy as np
+
+from category_encoders.binary import BinaryEncoder
+from category_encoders.target_encoder import TargetEncoder
 from sklearn.base import TransformerMixin, BaseEstimator
-from src.features.embeddings import GraphEmbedding
-from src import configuration as config
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
+
+from src import configuration as config
+from src.features.embeddings import GraphEmbedding
 from src.features.encoder_utils import get_metafeatures
-from category_encoders.binary import BinaryEncoder
-from category_encoders.target_encoder import TargetEncoder
 
 
 class DebugTransformer(BaseEstimator, TransformerMixin):
@@ -133,11 +135,13 @@ class Node2VecEmbedding(BaseEstimator, TransformerMixin):
 
     def transform(self, X):
         graph_embedding = GraphEmbedding(self.graph)
-        model = graph_embedding.node2vec(dimensions=self.dimensions,
-                                         walk_length=self.walk_length,
-                                         num_walks=self.num_walks,
-                                         workers=self.workers,
-                                         **self.kwargs)
+        model = graph_embedding.node2vec(
+            dimensions=self.dimensions,
+            walk_length=self.walk_length,
+            num_walks=self.num_walks,
+            workers=self.workers,
+            **self.kwargs
+        )
 
         # Get the embeddings.
         n2v_embeddings = {node: model.wv.get_vector(node) for node in model.wv.index_to_key}
@@ -170,11 +174,13 @@ class Node2VecGraphEmbeddingWithKMeans(BaseEstimator, TransformerMixin):
 
     def transform(self, X):
         graph_embedding = GraphEmbedding(self.graph)
-        model = graph_embedding.node2vec(dimensions=self.dimensions,
-                                         walk_length=self.walk_length,
-                                         num_walks=self.num_walks,
-                                         workers=self.workers,
-                                         **self.kwargs)
+        model = graph_embedding.node2vec(
+            dimensions=self.dimensions,
+            walk_length=self.walk_length,
+            num_walks=self.num_walks,
+            workers=self.workers,
+            **self.kwargs
+        )
 
         # Get the embeddings.
         node2vec_embeddings = {node: model.wv.get_vector(node) for node in model.wv.index_to_key}
@@ -213,12 +219,14 @@ class PoincareEmbedding(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         graph_embedding = GraphEmbedding(self.graph)
-        model = graph_embedding.poincare(epochs=self.epochs,
-                                         batch_size=self.batch_size,
-                                         size=self.size,
-                                         negative=self.negative,
-                                         alpha=self.alpha,
-                                         **self.kwargs)
+        model = graph_embedding.poincare(
+            epochs=self.epochs,
+            batch_size=self.batch_size,
+            size=self.size,
+            negative=self.negative,
+            alpha=self.alpha,
+            **self.kwargs
+        )
 
         # Get the embeddings.
         self._poincare_embeddings = {node: model.kv.get_vector(node) for node in model.kv.index_to_key}
@@ -229,7 +237,7 @@ class PoincareEmbedding(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-        X_new = X
+        X_new = X.copy()
         X_new['poincare_embedding_dim1'] = 0
         X_new['poincare_embedding_dim2'] = 0
 
@@ -273,7 +281,7 @@ class OpenMLMetaFeatureTransformer(BaseEstimator, TransformerMixin):
         The scaler used for scaling the values as preparation for the principal component analysis.
     expected_pca_variance: float
         The expected variance that should be retained after applying the pca.
-    encoder: category_encoders.utils.BaseEncoder
+    encoder: category_encoders.utils.BaseEncoder or None
         The encoder that should be applied on the original 'dataset' feature. If 'none' is passed no
         encoder is applied and the feature is just dropped.
     """
@@ -308,7 +316,10 @@ class OpenMLMetaFeatureTransformer(BaseEstimator, TransformerMixin):
             metafeatures = pd.DataFrame(self.imputer.fit_transform(metafeatures), index=ids)
             metafeatures = pd.DataFrame(self.scaler.fit_transform(metafeatures), index=ids)
             if self.expected_pca_variance < 1:
-                metafeatures = pd.DataFrame(PCA(n_components=self.expected_pca_variance).fit_transform(metafeatures), index=ids)
+                metafeatures = pd.DataFrame(
+                    PCA(n_components=self.expected_pca_variance).fit_transform(metafeatures),
+                    index=ids
+                )
             self.metafeatures = metafeatures.add_prefix('dataset_metafeature_')
 
         if self.encoder:
@@ -317,7 +328,7 @@ class OpenMLMetaFeatureTransformer(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-        X_new = pd.merge(X, self.metafeatures, left_on='dataset', right_index=True).sort_index()
+        X_new = pd.merge(X, self.metafeatures, left_on='dataset', right_index=True, sort=False).reindex(X.index)
         X_new = X_new.drop(columns=['dataset'])
         if self.encoder:
             X_new = pd.concat([

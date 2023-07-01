@@ -1,11 +1,11 @@
 import category_encoders.target_encoder
 import pandas as pd
-from enum import Enum
 
 from category_encoders.binary import BinaryEncoder
 from category_encoders.one_hot import OneHotEncoder
 from category_encoders.ordinal import OrdinalEncoder
 from category_encoders.target_encoder import TargetEncoder
+from enum import Enum
 from lightgbm import LGBMRegressor
 from sklearn.dummy import DummyClassifier, DummyRegressor
 from sklearn.impute import SimpleImputer
@@ -19,6 +19,7 @@ from src.pipeline.model_pipeline import ModelPipeline, EvaluationType
 from src.pipeline.pipeline_transformers import PoincareEmbedding, OpenMLMetaFeatureTransformer, \
     GeneralPurposeEncoderTransformer
 
+
 class ModelType(Enum):
     REGRE_BASELINE = "regre_baseline"
     CLASS_BASELINE = "class_baseline"
@@ -26,23 +27,28 @@ class ModelType(Enum):
     REGRE_PREPROCESSED = "regre_preprocessed"
     REGRE_TEST = "regre_test"
     REGRE_NO_SEARCH = "regre_no_search"
-     
+    REGRE_BAYES_SEARCH = "regre_bayes_search"
+
 
 class PipelineFactory:
     """
     Class that creates ModelPipelines
     """
-    def create_pipeline(self, X_train:pd.DataFrame, 
-                        model_type:ModelType, 
-                        evaluation:EvaluationType=EvaluationType.BASIC, 
-                        y_train=None, 
-                        X_test=None, 
-                        verbose_level=0,
-                        target:str="cv_score",
-                        split_factors=["dataset", "model", "tuning", "scoring"],
-                        param_grid=[],
-                        n_folds=5,
-                        **kwargs):
+
+    def create_pipeline(
+            self,
+            X_train: pd.DataFrame,
+            model_type: ModelType,
+            evaluation: EvaluationType = EvaluationType.BASIC,
+            y_train=None,
+            X_test=None,
+            verbose_level=0,
+            target: str = "cv_score",
+            split_factors=["dataset", "model", "tuning", "scoring"],
+            param_grid=[],
+            n_folds=5,
+            **kwargs
+    ):
         """
         Create a ModelPipeline of the specified type.
 
@@ -63,25 +69,25 @@ class PipelineFactory:
         if y_train is not None:
             # merge the X and y dataframes
             X_train = pd.concat([X_train, y_train], axis=1)
-        
+
         # depending on the model type create the appropriate pipeline
         if model_type == "regre_baseline" or model_type == ModelType.REGRE_BASELINE:
             pipeline_steps = [
-                ("estimator", DummyRegressor(strategy="mean"))    
-            ]   
-            
+                ("estimator", DummyRegressor(strategy="mean"))
+            ]
+
         elif model_type == "class_baseline" or model_type == ModelType.CLASS_BASELINE:
             pipeline_steps = [
                 ("estimator", DummyClassifier(strategy="most_frequent"))
             ]
-            
+
         elif model_type == "linear_regression" or model_type == ModelType.LINEAR_REGRESSION:
             graph = load_graph(config.DATA_DIR / "external/graphs/encodings_graph.adjlist")
             poincare_embedddings_transformer = PoincareEmbedding(graph=graph, epochs=100)
-                        
+
             pipeline_steps = [
                 ("poincare_embedding", poincare_embedddings_transformer),
-                ("estimator", LinearRegression())   
+                ("estimator", LinearRegression())
             ]
 
         elif model_type == "regre_preprocessed" or model_type == ModelType.REGRE_PREPROCESSED:
@@ -156,19 +162,57 @@ class PipelineFactory:
                 )),
                 ("estimator", DecisionTreeRegressor())
             ]
-            
+
+        elif model_type == "regre_bayes_search" or model_type == ModelType.REGRE_BAYES_SEARCH:
+            pipeline_steps = [
+                ("encoder_transformer", PoincareEmbedding(
+                    load_graph(config.ROOT_DIR / "data/external/graphs/encodings_graph.adjlist"),
+                    epochs=500,
+                    batch_size=50,
+                    size=3,
+                    encoder=category_encoders.one_hot.OneHotEncoder()
+
+                )),
+                ("dataset_transformer", OpenMLMetaFeatureTransformer(
+                    nan_ratio_feature_drop_threshold=0.25,
+                    imputer=SimpleImputer(strategy='mean'),
+                    scaler=StandardScaler(),
+                    expected_pca_variance=0.6,
+                    encoder=None
+                )),
+                ("general_transformer", GeneralPurposeEncoderTransformer(
+                    OneHotEncoder(),
+                    TargetEncoder(),
+                    TargetEncoder()
+                )),
+                ("estimator", DecisionTreeRegressor())
+            ]
+
+            evaluation = EvaluationType.BAYES_SEARCH
+
+            param_grid = {
+                'dataset_transformer__nan_ratio_feature_drop_threshold': [0.25, 0.4, 0.45, 0.5],
+                'dataset_transformer__expected_pca_variance': (0.5, 1.0),
+                'estimator__max_depth': [1, 10, 100, 500, None],  # default=None
+                'estimator__min_samples_split': (2, 50),  # default=2
+                'estimator__min_samples_leaf': (1, 50),  # default=1
+                'estimator__max_features': ['auto', 'sqrt', 'log2'],  # default=None / 'auto'
+                'estimator__ccp_alpha': (0.0, 0.5),  # default=0.0
+            }
+
         else:
-            raise ValueError(f"Unknown model type: {model_type}")            
-            
+            raise ValueError(f"Unknown model type: {model_type}")
+
         # create the new pipeline and return it
-        return ModelPipeline(X_train, 
-                             steps=pipeline_steps,
-                             evaluation=evaluation,
-                             X_test=X_test,
-                             verbose_level=verbose_level,
-                             target=target,
-                             split_factors=split_factors,
-                             param_grid=param_grid,
-                             n_folds=n_folds,
-                             **kwargs)
-        
+        return ModelPipeline(
+            X_train,
+            steps=pipeline_steps,
+            evaluation=evaluation,
+            X_test=X_test,
+            verbose_level=verbose_level,
+            target=target,
+            split_factors=split_factors,
+            param_grid=param_grid,
+            n_folds=n_folds,
+            **kwargs
+        )

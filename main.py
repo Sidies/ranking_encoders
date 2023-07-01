@@ -1,8 +1,9 @@
 import pandas as pd
 import argparse
+
 from src import configuration as config
-from src.pipeline.model_pipeline import ModelPipeline, EvaluationType
-from src.pipeline.pipeline_factory import PipelineFactory, ModelType
+from src.pipeline.model_pipeline import EvaluationType
+from src.pipeline.pipeline_factory import PipelineFactory
 
 
 def run_pipeline(args):
@@ -33,11 +34,13 @@ def run_pipeline(args):
         test_df_path = config.DATA_RAW_DIR / args.test_dataset
         test_df = config.load_dataset(test_df_path)
 
-    pipeline = pipeline_factory.create_pipeline(X_train=train_df,
-                                                model_type=args.pipeline_type,
-                                                verbose_level=1,
-                                                evaluation=EvaluationType.CROSS_VALIDATION,
-                                                X_test=test_df, )
+    pipeline = pipeline_factory.create_pipeline(
+        X_train=train_df,
+        model_type=args.pipeline_type,
+        verbose_level=1,
+        evaluation=EvaluationType.CROSS_VALIDATION,
+        X_test=test_df,
+    )
 
     pipeline.run()
 
@@ -46,8 +49,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--pipeline_type', type=str, default='regre_no_search', help='Type of pipeline to run')
-    parser.add_argument('--train_dataset', type=str, default='dataset_train.csv',
-                        help='Dataset name to use for training')
+    parser.add_argument(
+        '--train_dataset',
+        type=str,
+        default='dataset_train.csv',
+        help='Dataset name to use for training'
+    )
     parser.add_argument('--test_dataset', type=str, default='', help='Dataset name to use for testing')
     parser.add_argument('--y_train_dataset', type=str, default='', help='Dataset name to use for training labels')
     parser.add_argument('--target', type=str, default='cv_score', help='Target column name')
