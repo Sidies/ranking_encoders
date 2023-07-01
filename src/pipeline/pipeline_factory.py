@@ -194,9 +194,9 @@ class PipelineFactory:
                 'dataset_transformer__nan_ratio_feature_drop_threshold': [0.25, 0.4, 0.45, 0.5],
                 'dataset_transformer__expected_pca_variance': (0.5, 1.0),
                 'estimator__max_depth': [1, 10, 100, 500, None],  # default=None
-                'estimator__min_samples_split': (2, 50),  # default=2
-                'estimator__min_samples_leaf': (1, 50),  # default=1
-                'estimator__max_features': ['auto', 'sqrt', 'log2'],  # default=None / 'auto'
+                'estimator__min_samples_split': (2, 20),  # default=2
+                'estimator__min_samples_leaf': (1, 20),  # default=1
+                'estimator__max_features': [None, 'sqrt', 'log2'],  # default=None
                 'estimator__ccp_alpha': (0.0, 0.5),  # default=0.0
             }
 

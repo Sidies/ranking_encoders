@@ -50,8 +50,8 @@ class ModelPipeline:
             The dataframe to use for the pipeline
         target: str
             The target column name
-        steps: list of tuples 
-            The tuples should be of the form (name, transformer) 
+        steps: list of tuples
+            The tuples should be of the form (name, transformer)
         verbose_level: int
             The verbosity level
         evaluation: EvaluationType
@@ -173,9 +173,9 @@ class ModelPipeline:
                 X_train,
                 y_train,
                 param_grid=self._param_grid,
-                n_iter=800,
-                n_points=8,
-                cv=2,
+                n_iter=200,
+                n_points=4,
+                cv=4,
                 random_state=0
             )
 
@@ -324,7 +324,7 @@ class ModelPipeline:
         self._create_pipeline(steps=pip_steps)
 
     def change_estimator(self, new_estimator):
-        """Changes the current estimator of the pipeline to a different one. 
+        """Changes the current estimator of the pipeline to a different one.
         If no estimator is defined a new one will be added.
 
         Args:
@@ -361,7 +361,7 @@ class ModelPipeline:
     def load_pipeline(self, path):
         """
         Load the pipeline from a file
-        
+
         Parameters
         ----------
         path: string
@@ -385,7 +385,7 @@ class ModelPipeline:
         if not self._is_initialized():
             raise Exception('The pipeline is not initialized yet. Please run the pipeline first.')
 
-        # get the predictions 
+        # get the predictions
         predictions = self._pipeline.predict(data)
 
         # save the predictions
@@ -524,7 +524,7 @@ class ModelPipeline:
     def _split_target(self, df, target):
         """
         Split the target from the dataframe
-        
+
         Parameters
         ----------
         df: pandas.DataFrame
