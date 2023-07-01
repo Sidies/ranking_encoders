@@ -173,8 +173,8 @@ class ModelPipeline:
                 X_train,
                 y_train,
                 param_grid=self._param_grid,
-                n_iter=200,
-                n_points=4,
+                n_iter=400,
+                n_points=8,
                 cv=4,
                 random_state=0
             )
