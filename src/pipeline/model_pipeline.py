@@ -173,10 +173,9 @@ class ModelPipeline:
                 X_train,
                 y_train,
                 param_grid=self._param_grid,
-                n_iter=400,
-                n_points=8,
-                cv=4,
-                random_state=0
+                n_iter=200,
+                n_points=4,
+                cv=4
             )
 
         else:
@@ -453,7 +452,7 @@ class ModelPipeline:
             n_iter=400,
             n_points=8,
             n_jobs=-1,
-            random_state=42
+            random_state=None
     ):
         """
         Perform bayes search on the pipeline

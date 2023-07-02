@@ -12,6 +12,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeRegressor
+from skopt.space import Categorical, Integer, Real
 
 from src import configuration as config
 from src.features.encoder_utils import load_graph
@@ -57,7 +58,7 @@ class PipelineFactory:
             x_train_df (pd.DataFrame): The training data
             y_train_df (pd.DataFrame): The training labels
             verbose (int, optional): The verbosity level. Defaults to 0.
-            evaluation (str, optional): The type of evaluation to perform. 
+            evaluation (str, optional): The type of evaluation to perform.
                 Can be one of "basic", "cross_validation", "grid_search". Defaults to "basic".
 
         Raises:
@@ -191,13 +192,17 @@ class PipelineFactory:
             evaluation = EvaluationType.BAYES_SEARCH
 
             param_grid = {
-                'dataset_transformer__nan_ratio_feature_drop_threshold': [0.25, 0.4, 0.45, 0.5],
-                'dataset_transformer__expected_pca_variance': (0.5, 1.0),
-                'estimator__max_depth': [1, 10, 100, 500, None],  # default=None
-                'estimator__min_samples_split': (2, 20),  # default=2
-                'estimator__min_samples_leaf': (1, 20),  # default=1
-                'estimator__max_features': [None, 'sqrt', 'log2'],  # default=None
-                'estimator__ccp_alpha': (0.0, 0.5),  # default=0.0
+                'encoder_transformer__encoder': Categorical([None, OneHotEncoder()]),
+                'dataset_transformer__nan_ratio_feature_drop_threshold': Categorical([0.25, 0.4, 0.45, 0.5]),
+                'dataset_transformer__expected_pca_variance': Real(0.25, 1.0),
+                'dataset_transformer__encoder': Categorical([None, OneHotEncoder()]),
+                'general_transformer__model_encoder': Categorical([OneHotEncoder(), OrdinalEncoder(), TargetEncoder()]),
+                'general_transformer__tuning_encoder': Categorical([OneHotEncoder(), OrdinalEncoder(), TargetEncoder()]),
+                'general_transformer__scoring_encoder': Categorical([OneHotEncoder(), OrdinalEncoder(), TargetEncoder()]),
+                'estimator__max_depth': Categorical([1, 10, 50, 100, 250, 500, None]),  # default=None
+                'estimator__min_samples_split': Integer(2, 5),  # default=2
+                'estimator__min_samples_leaf': Integer(1, 5),  # default=1
+                'estimator__max_features': Categorical([None, 'sqrt', 'log2']),  # default=None
             }
 
         else:
