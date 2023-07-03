@@ -210,6 +210,83 @@ class PipelineFactory:
                 'estimator__max_features': Categorical([None, 'sqrt', 'log2']),  # default=None
             }
 
+        elif model_type == "pointwise_regression_no_search" or model_type == ModelType.POINTWISE_REGRESSION_NO_SEARCH:
+            target_transformer = TargetScalerTransformer(
+                scaler=MinMaxScaler(feature_range=(0, 1)),
+                group_by=['dataset', 'model', 'tuning', 'scoring']
+            )
+            X = X_train.drop(columns=[target])
+            y = X_train[target]
+            _, y = target_transformer.fit_transform(X, y)
+            X_train[target] = y
+
+            pipeline_steps = [
+                ("keeper", ColumnKeeper(columns=[
+                    'dataset',
+                    'model',
+                    'tuning',
+                    'scoring',
+                    'encoder'
+                ])),
+                ("encoder_transformer", PoincareEmbedding(
+                    load_graph(config.ROOT_DIR / "data/external/graphs/encodings_graph.adjlist"),
+                    epochs=500,
+                    batch_size=50,
+                    size=3,
+                    encoder=category_encoders.one_hot.OneHotEncoder()
+
+                )),
+                ("dataset_transformer", OpenMLMetaFeatureTransformer(
+                    nan_ratio_feature_drop_threshold=0.25,
+                    imputer=SimpleImputer(strategy='mean'),
+                    scaler=StandardScaler(),
+                    expected_pca_variance=0.6,
+                    encoder=None
+                )),
+                ("general_transformer", GeneralPurposeEncoderTransformer(
+                    OneHotEncoder(),
+                    TargetEncoder(),
+                    TargetEncoder()
+                )),
+                ("estimator", DecisionTreeRegressor())
+            ]
+
+            scorer = PointwiseSpearmanScorer(transformer=target_transformer)
+
+        elif model_type == "pointwise_classification_no_search" or model_type == ModelType.POINTWISE_CLASSIFICATION_NO_SEARCH:
+            pipeline_steps = [
+                ("keeper", ColumnKeeper(columns=[
+                    'dataset',
+                    'model',
+                    'tuning',
+                    'scoring',
+                    'encoder'
+                ])),
+                ("encoder_transformer", PoincareEmbedding(
+                    load_graph(config.ROOT_DIR / "data/external/graphs/encodings_graph.adjlist"),
+                    epochs=500,
+                    batch_size=50,
+                    size=3,
+                    encoder=category_encoders.one_hot.OneHotEncoder()
+
+                )),
+                ("dataset_transformer", OpenMLMetaFeatureTransformer(
+                    nan_ratio_feature_drop_threshold=0.25,
+                    imputer=SimpleImputer(strategy='mean'),
+                    scaler=StandardScaler(),
+                    expected_pca_variance=0.6,
+                    encoder=None
+                )),
+                ("general_transformer", GeneralPurposeEncoderTransformer(
+                    OneHotEncoder(),
+                    TargetEncoder(),
+                    TargetEncoder()
+                )),
+                ("estimator", DecisionTreeClassifier())
+            ]
+
+            scorer = PointwiseSpearmanScorer()
+
         else:
             raise ValueError(f"Unknown model type: {model_type}")
 
