@@ -42,7 +42,7 @@ from typing import List, Union
 
 def get_metafeatures(datasets: List[Union[str, int]]) -> pd.DataFrame:
     return pd.DataFrame([d.qualities.update({"id": d.id}) or d.qualities
-                         for d in get_datasets(datasets)]).set_index("id")
+                         for d in get_datasets(datasets, download_data=False)]).set_index("id")
 
 
 def load_graph(path: Union[Path, str]) -> nx.Graph:

@@ -60,7 +60,17 @@ from tqdm import tqdm
 from typing import Iterable, List
 
 
-def custom_cross_validation(pipeline: Pipeline, df, factors, target, train_size=0.75, shuffle=True, cv=5, verbose=1):
+def custom_cross_validation(
+        pipeline: Pipeline,
+        df,
+        factors,
+        target,
+        scorer=None,
+        train_size=0.75,
+        shuffle=True,
+        cv=5,
+        verbose=1
+):
     """
     Like cross_validation, but keeps encoders together: the split is on 'factors'.
     """
@@ -76,18 +86,24 @@ def custom_cross_validation(pipeline: Pipeline, df, factors, target, train_size=
             shuffle=shuffle,
             random_state=i
         )
-        
-        new_index = "encoder"
-        y_pred = pd.Series(pipeline.fit(X_train, y_train).predict(X_test), index=y_test.index, name="cv_score_pred")
-        df_pred = pd.concat([X_test, y_test, y_pred], axis=1)        
-        
-        # ---- convert to rankings and evaluate
-        rankings_test = get_rankings(df_pred, factors=factors, new_index=new_index, target=target)
-        rankings_pred = get_rankings(df_pred, factors=factors, new_index=new_index, target=target + "_pred")
-        validation_performance_scores['validation_average_spearman_fold_' + str(i)] = average_spearman(
-            rankings_test,
-            rankings_pred
-        )
+
+        if scorer is not None:
+            pipeline.fit(X_train, y_train)
+            validation_performance_scores[
+                'validation_average_spearman_fold_' + str(i)
+            ] = scorer(pipeline, X_test, y_test)
+        else:
+            new_index = "encoder"
+            y_pred = pd.Series(pipeline.fit(X_train, y_train).predict(X_test), index=y_test.index, name="cv_score_pred")
+            df_pred = pd.concat([X_test, y_test, y_pred], axis=1)
+
+            # ---- convert to rankings and evaluate
+            rankings_test = get_rankings(df_pred, factors=factors, new_index=new_index, target=target)
+            rankings_pred = get_rankings(df_pred, factors=factors, new_index=new_index, target=target + "_pred")
+            validation_performance_scores['validation_average_spearman_fold_' + str(i)] = average_spearman(
+                rankings_test,
+                rankings_pred
+            )
               
     return validation_performance_scores
 
@@ -169,7 +185,7 @@ def spearman_rho(x: Iterable, y: Iterable, nan_policy="omit"):
 
 
 def list_spearman(rf1: pd.DataFrame, rf2: pd.DataFrame) -> np.array:
-        
+
     if not rf1.columns.equals(rf2.columns) or not rf1.index.equals(rf2.index):
          raise ValueError("The two input dataframes should have the same index and columns.")
 
@@ -182,23 +198,27 @@ def average_spearman(rf1: pd.DataFrame, rf2: pd.DataFrame) -> np.array:
     return np.nanmean(list_spearman(rf1, rf2))
 
 
-class SpearmanScorer(_PredictScorer):
+class RegressionSpearmanScorer(_PredictScorer):
+    """
+    Scorer object that can be used to evaluate model performance. It calculates
+    a score by first assigning targets to a grouping and then calculating
+    rankings. The rankings of the true and the predicted target are then
+    compared with Spearman's correlation coefficient. The grouping is defined by
+    the submitted factors.
+
+    Parameters
+    ----------
+    factors: list of str
+        The features to group the data by.
+    """
     def __init__(
             self,
-            score_func=None,
-            sign=1,
-            kwargs=None,
-            factors=None,
-            new_index="encoder",
-            target="cv_score",
-
+            factors=None
     ):
-        super().__init__(score_func, sign, kwargs)
+        super().__init__(None, 1, None)
         if factors is None:
             factors = ["dataset", "model", "tuning", "scoring"]
         self.factors = factors
-        self.new_index = new_index
-        self.target = target
 
     def _score(self, method_caller, estimator, X, y_true, sample_weight=None):
         """Evaluate predicted target values for X relative to y_true.
@@ -227,21 +247,94 @@ class SpearmanScorer(_PredictScorer):
         score : float
             Score function applied to prediction of estimator on X.
         """
-        y_pred = pd.Series(method_caller(estimator, "predict", X), index=y_true.index, name=self.target + "_pred")
+        y_pred = pd.Series(method_caller(estimator, "predict", X), index=y_true.index, name=y_true.name + "_pred")
 
         df = pd.concat([X, y_true, y_pred], axis=1)
 
         y_true_rankings = get_rankings(
             df=df,
             factors=self.factors,
-            new_index=self.new_index,
-            target=self.target
+            new_index='encoder',
+            target=y_true.name
         )
         y_pred_rankings = get_rankings(
             df=df,
             factors=self.factors,
-            new_index=self.new_index,
-            target=self.target + "_pred"
+            new_index='encoder',
+            target=y_true.name + "_pred"
         )
 
         return average_spearman(y_true_rankings, y_pred_rankings)
+
+
+class PointwiseSpearmanScorer(_PredictScorer):
+    """
+    Scorer object that can be used to evaluate model performance. It calculates
+    the score by comparing the true and predicted rankings using the Spearman's
+    correlation coefficient. In case a transformer modified the target in the
+    training process, the object is submitted and can be used to revert the
+    transformation.
+
+    Parameters
+    ----------
+    transformer: (BaseEstimator, TransformerMixin)
+        A transformer that was previously applied to the target.
+    """
+    def __init__(
+            self,
+            transformer=None
+    ):
+        super().__init__(None, 1, None)
+        self.transformer = transformer
+
+    def _score(self, method_caller, estimator, X, y_true, sample_weight=None):
+        """Evaluate predicted target values for X relative to y_true.
+
+        Parameters
+        ----------
+        method_caller : callable
+            Returns predictions given an estimator, method name, and other
+            arguments, potentially caching results.
+
+        estimator : object
+            Trained estimator to use for scoring. Must have a `predict`
+            method; the output of that is used to compute the score.
+
+        X : {array-like, sparse matrix}
+            Test data that will be fed to estimator.predict.
+
+        y_true : array-like
+            Gold standard target values for X.
+
+        sample_weight : array-like of shape (n_samples,), default=None
+            Sample weights.
+
+        Returns
+        -------
+        score : float
+            Score function applied to prediction of estimator on X.
+        """
+        if len(y_true.shape) == 1:
+            y_true = pd.Series(y_true, index=y_true.index, name=y_true.name)
+            y_pred = pd.Series(method_caller(estimator, "predict", X), index=y_true.index, name=y_true.name)
+        else:
+            y_true = pd.DataFrame(y_true, index=y_true.index, columns=y_true.columns)
+            y_pred = pd.DataFrame(method_caller(estimator, "predict", X), index=y_true.index, columns=y_true.columns)
+
+        if self.transformer is not None:
+            _, y_true = self.transformer.inverse_transform(X, y_true)
+            _, y_pred = self.transformer.inverse_transform(X, y_pred)
+
+        y_true = pd.DataFrame(
+            y_true,
+            index=y_true.index,
+        )
+        y_pred = pd.DataFrame(
+            y_pred,
+            index=y_true.index,
+        )
+
+        y_true.columns = ['target']
+        y_pred.columns = ['target']
+
+        return average_spearman(y_true, y_pred)

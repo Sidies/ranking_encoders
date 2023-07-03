@@ -40,6 +40,7 @@ def run_pipeline(args):
         verbose_level=1,
         evaluation=EvaluationType.CROSS_VALIDATION,
         X_test=test_df,
+        target=args.target
     )
 
     pipeline.run()

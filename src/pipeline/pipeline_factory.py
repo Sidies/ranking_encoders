@@ -10,15 +10,16 @@ from lightgbm import LGBMRegressor
 from sklearn.dummy import DummyClassifier, DummyRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import StandardScaler
-from sklearn.tree import DecisionTreeRegressor
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from skopt.space import Categorical, Integer, Real
 
 from src import configuration as config
 from src.features.encoder_utils import load_graph
+from src.pipeline.evaluation.evaluation_utils import PointwiseSpearmanScorer
 from src.pipeline.model_pipeline import ModelPipeline, EvaluationType
 from src.pipeline.pipeline_transformers import PoincareEmbedding, OpenMLMetaFeatureTransformer, \
-    GeneralPurposeEncoderTransformer
+    GeneralPurposeEncoderTransformer, ColumnKeeper, TargetScalerTransformer, TargetOneHotTransformer
 
 
 class ModelType(Enum):
@@ -29,6 +30,9 @@ class ModelType(Enum):
     REGRE_TEST = "regre_test"
     REGRE_NO_SEARCH = "regre_no_search"
     REGRE_BAYES_SEARCH = "regre_bayes_search"
+    POINTWISE_REGRESSION_NO_SEARCH = "pointwise_regression_no_search"
+    POINTWISE_CLASSIFICATION_NO_SEARCH = "pointwise_classification_no_search"
+    POINTWISE_ORDINAL_REGRESSION_NO_SEARCH = "pointwise_ordinal_regression_no_search"
 
 
 class PipelineFactory:
@@ -43,11 +47,12 @@ class PipelineFactory:
             evaluation: EvaluationType = EvaluationType.BASIC,
             y_train=None,
             X_test=None,
-            verbose_level=0,
             target: str = "cv_score",
             split_factors=["dataset", "model", "tuning", "scoring"],
             param_grid=[],
+            scorer=None,
             n_folds=5,
+            verbose_level=0,
             **kwargs
     ):
         """
@@ -218,6 +223,7 @@ class PipelineFactory:
             target=target,
             split_factors=split_factors,
             param_grid=param_grid,
+            scorer=scorer,
             n_folds=n_folds,
             **kwargs
         )

@@ -38,6 +38,7 @@ class ModelPipeline:
             X_test: pd.DataFrame = None,
             split_factors=["dataset", "model", "tuning", "scoring"],
             param_grid=[],
+            scorer=None,
             n_folds=5,
             workers=1
     ):
@@ -73,6 +74,7 @@ class ModelPipeline:
         self._verbose_level = verbose_level
         self.X_test = X_test
         self._split_factors = split_factors
+        self._scorer = scorer
         self._param_grid = param_grid
         self._n_folds = n_folds
         self._workers = workers
@@ -159,6 +161,7 @@ class ModelPipeline:
                 self._df,
                 self._split_factors,
                 self._target,
+                self._scorer,
                 cv=self._n_folds,
                 verbose=self._verbose_level
             )
@@ -173,6 +176,7 @@ class ModelPipeline:
                 X_train,
                 y_train,
                 param_grid=self._param_grid,
+                scoring=self._scorer,
                 n_iter=200,
                 n_points=4,
                 cv=4
@@ -447,7 +451,7 @@ class ModelPipeline:
             self,
             X_train: pd.DataFrame,
             y_train, param_grid,
-            scoring=er.SpearmanScorer,
+            scoring=er.RegressionSpearmanScorer,
             cv=5,
             n_iter=400,
             n_points=8,
