@@ -1,13 +1,15 @@
 import pandas as pd
 import numpy as np
+import copy
 
 from category_encoders.binary import BinaryEncoder
+from category_encoders import OneHotEncoder
 from category_encoders.target_encoder import TargetEncoder
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from src import configuration as config
 from src.features.embeddings import GraphEmbedding
@@ -365,3 +367,69 @@ class GeneralPurposeEncoderTransformer(BaseEstimator, TransformerMixin):
         X_new = pd.concat([X_new, model_encoded, tuning_encoded, scoring_encoded], axis=1)
 
         return X_new
+
+
+class TargetScalerTransformer(BaseEstimator, TransformerMixin):
+    def __init__(self, scaler=MinMaxScaler(feature_range=(0, 1)), group_by=None):
+        if group_by is None:
+            group_by = ['dataset', 'model', 'tuning', 'scoring']
+        self.scaler = scaler
+        self.group_by = group_by
+        self.scalers_by_group = {}
+
+    def fit(self, X, y=None):
+        if y is not None:
+            df = pd.concat([X, y], axis=1)
+            for group, data in df.groupby(by=self.group_by):
+                scaler = copy.deepcopy(self.scaler)
+                group_target = pd.DataFrame(data[y.name])
+                self.scalers_by_group[group] = scaler.fit(group_target)
+        return self
+
+    def transform(self, X, y=None):
+        if y is not None:
+            df = pd.concat([X, y], axis=1)
+            for index, row in df.iterrows():
+                group = tuple(row[self.group_by])
+                scaler = self.scalers_by_group[group]
+                target = pd.DataFrame({y.name: [row[y.name]]})
+                df.loc[index, y.name] = scaler.transform(target)
+            y = df[y.name]
+        return X, y
+
+    def fit_transform(self, X, y=None, **fit_params):
+        return self.fit(X, y).transform(X, y)
+
+    def inverse_transform(self, X, y=None):
+        if y is not None:
+            df = pd.concat([X, y], axis=1)
+            for index, row in df.iterrows():
+                group = tuple(row[self.group_by])
+                scaler = self.scalers_by_group[group]
+                target = pd.DataFrame({y.name: [row[y.name]]})
+                df.loc[index, y.name] = scaler.inverse_transform(target)
+            y = df[y.name]
+        return X, y
+
+
+class TargetOneHotTransformer(BaseEstimator, TransformerMixin):
+    def __init__(self):
+        self.onehot = OneHotEncoder()
+
+    def fit(self, X, y=None):
+        if y is not None:
+            self.onehot.fit(y.astype('category'))
+        return self
+
+    def transform(self, X, y=None):
+        if y is not None:
+            y = self.onehot.transform(y.astype('category'))
+        return X, y
+
+    def fit_transform(self, X, y=None, **fit_params):
+        return self.fit(X, y).transform(X, y)
+
+    def inverse_transform(self, X, y=None):
+        if y is not None:
+            y = self.onehot.inverse_transform(y.astype('category'))
+        return X, y
