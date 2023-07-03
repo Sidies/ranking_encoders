@@ -190,7 +190,8 @@ class SpearmanScorer(_PredictScorer):
             kwargs=None,
             factors=None,
             new_index="encoder",
-            target="cv_score"
+            target="cv_score",
+
     ):
         super().__init__(score_func, sign, kwargs)
         if factors is None:

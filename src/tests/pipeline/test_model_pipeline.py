@@ -12,7 +12,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.dummy import DummyRegressor, DummyClassifier
 from src.pipeline.pipeline_transformers import PrintDataframe, GroupDataframe, TextPrinter
-from src.pipeline.evaluation.evaluate_regression import custom_train_test_split
+from src.pipeline.evaluation.evaluation_utils import custom_train_test_split
 
 class TestModelPipeline(unittest.TestCase):
     

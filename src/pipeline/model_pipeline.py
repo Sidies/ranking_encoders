@@ -11,7 +11,7 @@ from sklearn.pipeline import Pipeline
 from skopt import BayesSearchCV
 
 from src import configuration as config
-from src.pipeline.evaluation import evaluate_regression as er
+from src.pipeline.evaluation import evaluation_utils as er
 from src.pipeline.evaluation.custom_grid_search import custom_grid_search
 
 

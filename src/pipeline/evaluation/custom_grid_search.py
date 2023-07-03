@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
-from src.pipeline.evaluation.evaluate_regression import get_rankings, average_spearman, custom_train_test_split
+from src.pipeline.evaluation.evaluation_utils import get_rankings, average_spearman, custom_train_test_split
 from sklearn.pipeline import Pipeline
 
 

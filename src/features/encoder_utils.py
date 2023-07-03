@@ -36,14 +36,35 @@ import networkx as nx
 import pandas as pd
 
 from openml.datasets import get_datasets
-from typing import List, Union
 from pathlib import Path
+from typing import List, Union
+
 
 def get_metafeatures(datasets: List[Union[str, int]]) -> pd.DataFrame:
     return pd.DataFrame([d.qualities.update({"id": d.id}) or d.qualities
-                         for d in get_datasets(datasets, download_data=False)]).set_index("id")
+                         for d in get_datasets(datasets)]).set_index("id")
 
 
 def load_graph(path: Union[Path, str]) -> nx.Graph:
     return nx.read_adjlist(path)
+
+
+class NoY(object):
+    """
+    As category_encoders.OneHotEncoder does not support multioutput, we need to fool it by just not passing Y to it.
+    Alternatively, just pre-process the dataset separately.
+    """
+
+    def __init__(self, encoder):
+        self.encoder = encoder
+
+    def fit(self, X, y=None):
+        self.encoder.fit(X)
+        return self
+
+    def transform(self, X, y=None):
+        return self.encoder.transform(X)
+
+    def fit_transform(self, X, y=None):
+        return self.encoder.fit_transform(X)
 
