@@ -42,7 +42,10 @@ def load_whole_data():
     return merged_df, x_train_df, y_train_df
 
 def load_traindata_for_regression():
-    return load_dataset(os.path.join(ROOT_DIR, 'data/raw/dataset_train.csv'))    
+    return load_dataset(os.path.join(ROOT_DIR, 'data/raw/dataset_train.csv'))
+
+def load_traindata_for_pointwise():
+    return load_dataset(os.path.join(ROOT_DIR, 'data/raw/dataset_rank_train.csv'))
 
 def load_testdata_for_regression():
     return load_dataset(os.path.join(ROOT_DIR, 'data/raw/X_test.csv'))

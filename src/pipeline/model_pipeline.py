@@ -2,12 +2,14 @@ import pandas as pd
 import numpy as np
 import enum
 
+from category_encoders.one_hot import OneHotEncoder
 from joblib import dump, load
 from sklearn.base import is_classifier, is_regressor
 from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef, make_scorer, mean_absolute_error, \
     mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import MinMaxScaler
 from skopt import BayesSearchCV
 
 from src import configuration as config
@@ -38,6 +40,7 @@ class ModelPipeline:
             X_test: pd.DataFrame = None,
             split_factors=["dataset", "model", "tuning", "scoring"],
             param_grid=[],
+            target_transformer=None,
             scorer=None,
             n_folds=5,
             workers=1
@@ -74,6 +77,7 @@ class ModelPipeline:
         self._verbose_level = verbose_level
         self.X_test = X_test
         self._split_factors = split_factors
+        self._target_transformer = target_transformer
         self._scorer = scorer
         self._param_grid = param_grid
         self._n_folds = n_folds
@@ -161,6 +165,7 @@ class ModelPipeline:
                 self._df,
                 self._split_factors,
                 self._target,
+                self._target_transformer,
                 self._scorer,
                 cv=self._n_folds,
                 verbose=self._verbose_level
@@ -435,6 +440,7 @@ class ModelPipeline:
             self._param_grid,
             self._split_factors,
             self._target,
+            target_transformer=self._target_transformer,
             cv=self._n_folds,
             ParallelUnits=self._workers,
             verbose=self._verbose_level
@@ -517,6 +523,7 @@ class ModelPipeline:
             self._df,
             self._split_factors,
             self._target,
+            target_transformer=self._target_transformer,
             cv=self._n_folds,
             verbose=self._verbose_level
         )

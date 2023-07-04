@@ -59,12 +59,15 @@ from sklearn.pipeline import Pipeline
 from tqdm import tqdm
 from typing import Iterable, List
 
+from src.features.encoder_utils import NoY
+
 
 def custom_cross_validation(
         pipeline: Pipeline,
         df,
         factors,
         target,
+        target_transformer=None,
         scorer=None,
         train_size=0.75,
         shuffle=True,
@@ -93,13 +96,28 @@ def custom_cross_validation(
                 'validation_average_spearman_fold_' + str(i)
             ] = scorer(pipeline, X_test, y_test)
         else:
-            new_index = "encoder"
-            y_pred = pd.Series(pipeline.fit(X_train, y_train).predict(X_test), index=y_test.index, name="cv_score_pred")
-            df_pred = pd.concat([X_test, y_test, y_pred], axis=1)
+            if target_transformer is not None:
+                target_transformer = NoY(target_transformer)
+                y_train = target_transformer.fit_transform(pd.DataFrame(y_train))
+
+            pipeline.fit(X_train, y_train)
+
+            y_pred = pipeline.predict(X_test)
+            if target_transformer is not None:
+                y_pred = target_transformer.inverse_transform(pd.DataFrame(y_pred))
+
+            y_pred = pd.Series(y_pred.flatten(), index=y_test.index, name=target + "_pred")
 
             # ---- convert to rankings and evaluate
-            rankings_test = get_rankings(df_pred, factors=factors, new_index=new_index, target=target)
-            rankings_pred = get_rankings(df_pred, factors=factors, new_index=new_index, target=target + "_pred")
+            if target == "cv_score":
+                new_index = "encoder"
+                df_pred = pd.concat([X_test, y_test, y_pred], axis=1)
+                rankings_test = get_rankings(df_pred, factors=factors, new_index=new_index, target=target)
+                rankings_pred = get_rankings(df_pred, factors=factors, new_index=new_index, target=target + "_pred")
+            else:
+                rankings_test = pd.DataFrame(y_test)
+                rankings_pred = pd.DataFrame(y_pred)
+
             validation_performance_scores['validation_average_spearman_fold_' + str(i)] = average_spearman(
                 rankings_test,
                 rankings_pred
@@ -185,9 +203,11 @@ def spearman_rho(x: Iterable, y: Iterable, nan_policy="omit"):
 
 
 def list_spearman(rf1: pd.DataFrame, rf2: pd.DataFrame) -> np.array:
+    #if not rf1.columns.equals(rf2.columns) or not rf1.index.equals(rf2.index):
+    #     raise ValueError("The two input dataframes should have the same index and columns.")
 
-    if not rf1.columns.equals(rf2.columns) or not rf1.index.equals(rf2.index):
-         raise ValueError("The two input dataframes should have the same index and columns.")
+    if not rf1.index.equals(rf2.index):
+        raise ValueError("The two input dataframes should have the same index and columns.")
 
     return np.array([
         spearman_rho(r1, r2, nan_policy="omit") for (_, r1), (_, r2) in zip(rf1.items(), rf2.items())

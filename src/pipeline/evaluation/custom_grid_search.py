@@ -6,10 +6,20 @@ import pandas as pd
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
 from src.pipeline.evaluation.evaluation_utils import get_rankings, average_spearman, custom_train_test_split
+from src.features.encoder_utils import NoY
 from sklearn.pipeline import Pipeline
 
 
-def custom_grid_search(pipeline: Pipeline, df, GridSearchParams, split_factors, target:str, cv=5, train_size=0.75, ParallelUnits=1, verbose=1):
+def custom_grid_search(
+    pipeline: Pipeline,
+    df, GridSearchParams,
+    split_factors,
+    target:str,
+    target_transformer=None,
+    cv=5,
+    train_size=0.75,
+    ParallelUnits=1,
+    verbose=1):
     """
     Perform a grid search on the given model using the specified parameters,
     returning the results, the best parameters, and the best score.
@@ -50,21 +60,32 @@ def custom_grid_search(pipeline: Pipeline, df, GridSearchParams, split_factors, 
     """
 
     # Train the model using the specified parameters and calculate the error
-    def process_param_set(params, X_train, X_test, y_train, y_test, pipeline:Pipeline, split_factors, target):
-
+    def process_param_set(params, X_train, X_test, y_train, y_test, pipeline:Pipeline, split_factors, target, target_transformer):
         # set the parameters
         pipeline.set_params(**params)
 
-        # Train the pipeline     
-        y_pred = pd.Series(pipeline.fit(X_train, y_train).predict(X_test), index=y_test.index, name="cv_score_pred")
-        
-        # calculate average spearman correlation
-        new_index = "encoder"
-        df_pred = pd.concat([X_test, y_test, y_pred], axis=1)
-        # ---- convert to rankings and evaluate
-        rankings_test = get_rankings(df_pred, factors=split_factors, new_index=new_index, target=target)
-        rankings_pred = get_rankings(df_pred, factors=split_factors, new_index=new_index, target=target + "_pred")
-        
+        if target_transformer is not None:
+            target_transformer = NoY(target_transformer)
+            y_train = target_transformer.fit_transform(pd.DataFrame(y_train))
+
+        # Train the pipeline
+        pipeline.fit(X_train, y_train)
+        y_pred = pd.Series(pipeline.predict(X_test), index=y_test.index, name=target + "_pred")
+
+        if target == "cv_score":
+            # calculate average spearman correlation
+            new_index = "encoder"
+            df_pred = pd.concat([X_test, y_test, y_pred], axis=1)
+            # ---- convert to rankings and evaluate
+            rankings_test = get_rankings(df_pred, factors=split_factors, new_index=new_index, target=target)
+            rankings_pred = get_rankings(df_pred, factors=split_factors, new_index=new_index, target=target + "_pred")
+        else:
+            if target_transformer is not None:
+                y_pred = target_transformer.inverse_transform(pd.DataFrame(y_pred))
+
+            rankings_test = pd.DataFrame(y_test)
+            rankings_pred = pd.DataFrame(y_pred)
+
         error = average_spearman(rankings_test, rankings_pred)
 
         return params, error
@@ -97,8 +118,18 @@ def custom_grid_search(pipeline: Pipeline, df, GridSearchParams, split_factors, 
 
                     for i in tqdm(range(cv), disable=disable_tqdm, leave=False):
                         X_train, X_test, y_train, y_test = custom_train_test_split(df, split_factors, target, train_size, random_state=i)
-                        future = executor.submit(process_param_set,
-                                                params, X_train, X_test, y_train, y_test, pipeline, split_factors, target)
+                        future = executor.submit(
+                            process_param_set,
+                            params,
+                            X_train,
+                            X_test,
+                            y_train,
+                            y_test,
+                            pipeline,
+                            split_factors,
+                            target,
+                            target_transformer
+                        )
                         futures.append(future)
 
                     for future in futures:

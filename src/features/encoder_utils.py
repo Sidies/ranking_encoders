@@ -55,16 +55,19 @@ class NoY(object):
     Alternatively, just pre-process the dataset separately.
     """
 
-    def __init__(self, encoder):
-        self.encoder = encoder
+    def __init__(self, transformer):
+        self.transformer = transformer
 
     def fit(self, X, y=None):
-        self.encoder.fit(X)
+        self.transformer.fit(X)
         return self
 
     def transform(self, X, y=None):
-        return self.encoder.transform(X)
+        return self.transformer.transform(X)
 
     def fit_transform(self, X, y=None):
-        return self.encoder.fit_transform(X)
+        return self.transformer.fit_transform(X)
+
+    def inverse_transform(self, X, y=None):
+        return self.transformer.inverse_transform(X)
 

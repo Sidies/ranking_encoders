@@ -53,12 +53,12 @@ if __name__ == '__main__':
     parser.add_argument(
         '--train_dataset',
         type=str,
-        default='dataset_train.csv',
+        default='dataset_rank_train.csv',
         help='Dataset name to use for training'
     )
     parser.add_argument('--test_dataset', type=str, default='', help='Dataset name to use for testing')
     parser.add_argument('--y_train_dataset', type=str, default='', help='Dataset name to use for training labels')
-    parser.add_argument('--target', type=str, default='cv_score', help='Target column name')
+    parser.add_argument('--target', type=str, default='rank', help='Target column name')
 
     args = parser.parse_args()
 

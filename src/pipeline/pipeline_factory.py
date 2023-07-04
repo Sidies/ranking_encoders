@@ -33,6 +33,8 @@ class ModelType(Enum):
     POINTWISE_REGRESSION_NO_SEARCH = "pointwise_regression_no_search"
     POINTWISE_CLASSIFICATION_NO_SEARCH = "pointwise_classification_no_search"
     POINTWISE_ORDINAL_REGRESSION_NO_SEARCH = "pointwise_ordinal_regression_no_search"
+    POINTWISE_REGRESSION_GRID_SEARCH = "pointwise_regression_grid_search"
+    POINTWISE_CLASSIFICATION_BAYES_SEARCH = "pointwise_classification_bayes_search"
 
 
 class PipelineFactory:
@@ -50,6 +52,7 @@ class PipelineFactory:
             target: str = "cv_score",
             split_factors=["dataset", "model", "tuning", "scoring"],
             param_grid=[],
+            target_transformer=None,
             scorer=None,
             n_folds=5,
             verbose_level=0,
@@ -72,6 +75,8 @@ class PipelineFactory:
         Returns:
             ModelPipeline: The created ModelPipeline
         """
+        print('Creating pipeline ...')
+
         if y_train is not None:
             # merge the X and y dataframes
             X_train = pd.concat([X_train, y_train], axis=1)
@@ -211,14 +216,7 @@ class PipelineFactory:
             }
 
         elif model_type == "pointwise_regression_no_search" or model_type == ModelType.POINTWISE_REGRESSION_NO_SEARCH:
-            target_transformer = TargetScalerTransformer(
-                scaler=MinMaxScaler(feature_range=(0, 1)),
-                group_by=['dataset', 'model', 'tuning', 'scoring']
-            )
-            X = X_train.drop(columns=[target])
-            y = X_train[target]
-            _, y = target_transformer.fit_transform(X, y)
-            X_train[target] = y
+            target_transformer = MinMaxScaler(feature_range=(0, 1))
 
             pipeline_steps = [
                 ("keeper", ColumnKeeper(columns=[
@@ -250,8 +248,6 @@ class PipelineFactory:
                 )),
                 ("estimator", DecisionTreeRegressor())
             ]
-
-            scorer = PointwiseSpearmanScorer(transformer=target_transformer)
 
         elif model_type == "pointwise_classification_no_search" or model_type == ModelType.POINTWISE_CLASSIFICATION_NO_SEARCH:
             pipeline_steps = [
@@ -285,7 +281,79 @@ class PipelineFactory:
                 ("estimator", DecisionTreeClassifier())
             ]
 
-            scorer = PointwiseSpearmanScorer()
+        elif model_type == "pointwise_ordinal_regression_no_search" or model_type == ModelType.POINTWISE_ORDINAL_REGRESSION_NO_SEARCH:
+            target_transformer = OneHotEncoder(cols=[target])
+
+            pipeline_steps = [
+                ("keeper", ColumnKeeper(columns=[
+                    'dataset',
+                    'model',
+                    'tuning',
+                    'scoring',
+                    'encoder'
+                ])),
+                ("encoder_transformer", PoincareEmbedding(
+                    load_graph(config.ROOT_DIR / "data/external/graphs/encodings_graph.adjlist"),
+                    epochs=500,
+                    batch_size=50,
+                    size=3,
+                    encoder=category_encoders.one_hot.OneHotEncoder()
+
+                )),
+                ("dataset_transformer", OpenMLMetaFeatureTransformer(
+                    nan_ratio_feature_drop_threshold=0.25,
+                    imputer=SimpleImputer(strategy='mean'),
+                    scaler=StandardScaler(),
+                    expected_pca_variance=0.6,
+                    encoder=None
+                )),
+                ("general_transformer", GeneralPurposeEncoderTransformer(
+                    OneHotEncoder(),
+                    TargetEncoder(),
+                    TargetEncoder()
+                )),
+                ("estimator", DecisionTreeClassifier())
+            ]
+
+        elif model_type == "pointwise_regression_grid_search" or model_type == ModelType.POINTWISE_REGRESSION_GRID_SEARCH:
+            evaluation = EvaluationType.GRID_SEARCH
+
+            param_grid = {
+                'encoder_transformer__epochs': [50, 100]
+            }
+
+            target_transformer = MinMaxScaler(feature_range=(0, 1))
+
+            pipeline_steps = [
+                ("keeper", ColumnKeeper(columns=[
+                    'dataset',
+                    'model',
+                    'tuning',
+                    'scoring',
+                    'encoder'
+                ])),
+                ("encoder_transformer", PoincareEmbedding(
+                    load_graph(config.ROOT_DIR / "data/external/graphs/encodings_graph.adjlist"),
+                    epochs=500,
+                    batch_size=50,
+                    size=3,
+                    encoder=category_encoders.one_hot.OneHotEncoder()
+
+                )),
+                ("dataset_transformer", OpenMLMetaFeatureTransformer(
+                    nan_ratio_feature_drop_threshold=0.25,
+                    imputer=SimpleImputer(strategy='mean'),
+                    scaler=StandardScaler(),
+                    expected_pca_variance=0.6,
+                    encoder=None
+                )),
+                ("general_transformer", GeneralPurposeEncoderTransformer(
+                    OneHotEncoder(),
+                    TargetEncoder(),
+                    TargetEncoder()
+                )),
+                ("estimator", DecisionTreeRegressor())
+            ]
 
         else:
             raise ValueError(f"Unknown model type: {model_type}")
@@ -300,6 +368,7 @@ class PipelineFactory:
             target=target,
             split_factors=split_factors,
             param_grid=param_grid,
+            target_transformer=target_transformer,
             scorer=scorer,
             n_folds=n_folds,
             **kwargs
