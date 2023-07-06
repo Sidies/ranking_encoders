@@ -97,16 +97,15 @@ def custom_cross_validation(
             ] = scorer(pipeline, X_test, y_test)
         else:
             if target_transformer is not None:
-                target_transformer = NoY(target_transformer)
-                y_train = target_transformer.fit_transform(pd.DataFrame(y_train))
+                _, y_train = target_transformer.fit_transform(X_train, y_train)
 
             pipeline.fit(X_train, y_train)
 
             y_pred = pipeline.predict(X_test)
             if target_transformer is not None:
-                y_pred = target_transformer.inverse_transform(pd.DataFrame(y_pred))
+                _, y_pred = target_transformer.inverse_transform(X_test, y_pred)
 
-            y_pred = pd.Series(y_pred.flatten(), index=y_test.index, name=target + "_pred")
+            y_pred = pd.Series(y_pred, index=y_test.index, name=target + "_pred")
 
             # ---- convert to rankings and evaluate
             if target == "cv_score":
@@ -151,8 +150,13 @@ def custom_train_test_split(df: pd.DataFrame, factors, target, train_size=0.75, 
 
     X_factors = df.groupby(factors).agg(lambda a: np.nan).reset_index()[factors]
     #print(f"X_faftors: \n {X_factors.head()}")
-    factors_train, factors_test = train_test_split(X_factors, stratify=X_factors.dataset,
-                                                   train_size=train_size, shuffle=shuffle, random_state=random_state)
+    factors_train, factors_test = train_test_split(
+        X_factors,
+        stratify=X_factors.dataset,
+        train_size=train_size,
+        shuffle=shuffle,
+        random_state=random_state
+    )
 
     #print(f"Factors train: \n {factors_train.head()}")
     #print(f"factors test: \n {factors_test.head()}")
@@ -189,7 +193,7 @@ def get_rankings(df: pd.DataFrame, factors, new_index, target) -> pd.DataFrame:
 
     rankings = {}
     for group, indices in df.groupby(factors).groups.items():
-        #score = df.iloc[indices].set_index(new_index)[target]
+        # score = df.iloc[indices].set_index(new_index)[target]
         score = df.loc[indices].set_index(new_index)[target]
         rankings[group] = score2ranking(score, ascending=False)
 
@@ -203,7 +207,7 @@ def spearman_rho(x: Iterable, y: Iterable, nan_policy="omit"):
 
 
 def list_spearman(rf1: pd.DataFrame, rf2: pd.DataFrame) -> np.array:
-    #if not rf1.columns.equals(rf2.columns) or not rf1.index.equals(rf2.index):
+    # if not rf1.columns.equals(rf2.columns) or not rf1.index.equals(rf2.index):
     #     raise ValueError("The two input dataframes should have the same index and columns.")
 
     if not rf1.index.equals(rf2.index):
@@ -297,7 +301,7 @@ class PointwiseSpearmanScorer(_PredictScorer):
 
     Parameters
     ----------
-    transformer: (BaseEstimator, TransformerMixin)
+    transformer: (Type[BaseEstimator] & Type[TransformerMixin])
         A transformer that was previously applied to the target.
     """
     def __init__(

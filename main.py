@@ -35,7 +35,7 @@ def run_pipeline(args):
         test_df = config.load_dataset(test_df_path)
 
     pipeline = pipeline_factory.create_pipeline(
-        X_train=train_df,
+        train_df=train_df,
         model_type=args.pipeline_type,
         verbose_level=1,
         evaluation=EvaluationType.CROSS_VALIDATION,
@@ -49,7 +49,7 @@ def run_pipeline(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--pipeline_type', type=str, default='regre_bayes_search', help='Type of pipeline to run')
+    parser.add_argument('--pipeline_type', type=str, default='pointwise_normalized_regression_bayes_search', help='Type of pipeline to run')
     parser.add_argument(
         '--train_dataset',
         type=str,

@@ -41,8 +41,13 @@ class ModelPipeline:
             split_factors=["dataset", "model", "tuning", "scoring"],
             param_grid=[],
             target_transformer=None,
+            original_target=None,
             scorer=None,
             n_folds=5,
+            bayes_n_iter=200,
+            bayes_n_points=4,
+            bayes_cv=4,
+            bayes_n_jobs=-1,
             workers=1
     ):
         """
@@ -78,9 +83,14 @@ class ModelPipeline:
         self.X_test = X_test
         self._split_factors = split_factors
         self._target_transformer = target_transformer
+        self._original_target = original_target
         self._scorer = scorer
         self._param_grid = param_grid
         self._n_folds = n_folds
+        self._bayes_n_iter = bayes_n_iter
+        self._bayes_n_points = bayes_n_points
+        self._bayes_cv = bayes_cv
+        self._bayes_n_jobs = bayes_n_jobs
         self._workers = workers
 
     # start the pipeline
@@ -182,9 +192,10 @@ class ModelPipeline:
                 y_train,
                 param_grid=self._param_grid,
                 scoring=self._scorer,
-                n_iter=200,
-                n_points=4,
-                cv=4
+                n_iter=self._bayes_n_iter,
+                n_points=self._bayes_n_points,
+                cv=self._bayes_cv,
+                n_jobs=self._bayes_n_jobs
             )
 
         else:
@@ -385,9 +396,21 @@ class ModelPipeline:
             data : The data to make predictions on
         """
 
-        # check if df contains the target column
-        if self._target in data.columns:
-            data = data.drop(self._target, axis=1)
+        # check if df contains the target column(s) and remove if necessary
+        if isinstance(self._target, list):
+            target = set(self._target)
+        elif isinstance(self._target, pd.Index):
+            target = set(list(self._target))
+        else:
+            target = {self._target}
+        if self._original_target is not None:
+            if isinstance(self._original_target, list):
+                target = target = target | set(self._original_target)
+            elif isinstance(self._original_target, pd.Index):
+                target = target = target | set(list(self._original_target))
+            else:
+                target = target = target | {self._original_target}
+        data = data.drop(list(set(data.columns).intersection(target)), axis=1)
 
         # check if the pipeline is initialized
         if not self._is_initialized():
@@ -441,6 +464,7 @@ class ModelPipeline:
             self._split_factors,
             self._target,
             target_transformer=self._target_transformer,
+            scorer=self._scorer,
             cv=self._n_folds,
             ParallelUnits=self._workers,
             verbose=self._verbose_level
@@ -458,9 +482,9 @@ class ModelPipeline:
             X_train: pd.DataFrame,
             y_train, param_grid,
             scoring=er.RegressionSpearmanScorer,
-            cv=5,
-            n_iter=400,
-            n_points=8,
+            cv=4,
+            n_iter=200,
+            n_points=4,
             n_jobs=-1,
             random_state=None
     ):
@@ -497,7 +521,7 @@ class ModelPipeline:
         search = BayesSearchCV(
             estimator=self._pipeline,
             search_spaces=param_grid,
-            scoring=scoring(),
+            scoring=scoring,
             cv=indices,
             n_iter=n_iter,
             n_points=n_points,
@@ -524,6 +548,7 @@ class ModelPipeline:
             self._split_factors,
             self._target,
             target_transformer=self._target_transformer,
+            scorer=self._scorer,
             cv=self._n_folds,
             verbose=self._verbose_level
         )

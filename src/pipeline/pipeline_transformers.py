@@ -234,7 +234,14 @@ class PoincareEmbedding(BaseEstimator, TransformerMixin):
         self._poincare_embeddings = {node: model.kv.get_vector(node) for node in model.kv.index_to_key}
 
         if self.encoder:
-            self.encoder.fit(X['encoder'], y)
+            try:
+                self.encoder.fit(X['encoder'], y)
+            except Exception:
+                try:
+                    self.encoder.fit(X['encoder'], None)
+                except Exception as e:
+                    print('Encoder requires the target, but the target has an invalid format.')
+                    raise
 
         return self
 
@@ -325,7 +332,14 @@ class OpenMLMetaFeatureTransformer(BaseEstimator, TransformerMixin):
             self.metafeatures = metafeatures.add_prefix('dataset_metafeature_')
 
         if self.encoder:
-            self.encoder.fit(X['dataset'].astype('category'), y)
+            try:
+                self.encoder.fit(X['dataset'].astype('category'), y)
+            except Exception:
+                try:
+                    self.encoder.fit(X['dataset'].astype('category'), None)
+                except Exception as e:
+                    print('Encoder requires the target, but the target has an invalid format.')
+                    raise
 
         return self
 
@@ -353,9 +367,18 @@ class GeneralPurposeEncoderTransformer(BaseEstimator, TransformerMixin):
         self.scoring_encoder = scoring_encoder
 
     def fit(self, X, y=None):
-        self.model_encoder.fit(X['model'], y)
-        self.tuning_encoder.fit(X['tuning'], y)
-        self.scoring_encoder.fit(X['scoring'], y)
+        try:
+            self.model_encoder.fit(X['model'], y)
+            self.tuning_encoder.fit(X['tuning'], y)
+            self.scoring_encoder.fit(X['scoring'], y)
+        except Exception:
+            try:
+                self.model_encoder.fit(X['model'], None)
+                self.tuning_encoder.fit(X['tuning'], None)
+                self.scoring_encoder.fit(X['scoring'], None)
+            except Exception as e:
+                print('Encoder requires the target, but the target has an invalid format.')
+                raise
         return self
 
     def transform(self, X):
@@ -367,6 +390,157 @@ class GeneralPurposeEncoderTransformer(BaseEstimator, TransformerMixin):
         X_new = pd.concat([X_new, model_encoded, tuning_encoded, scoring_encoded], axis=1)
 
         return X_new
+
+
+def get_column_names(data):
+    if isinstance(data, pd.DataFrame):
+        return data.columns
+    elif isinstance(data, pd.Series):
+        return [data.name]
+    else:
+        return range(get_number_of_columns(data))
+
+
+def get_number_of_columns(data):
+    number_of_columns = 1
+    if len(data.shape) == 2:
+        number_of_columns = data.shape[1]
+    return number_of_columns
+
+
+def get_transformed_target_column_names(original_target, transformed_target):
+    original_name = get_column_names(original_target)[0]
+    number_of_columns = get_number_of_columns(transformed_target)
+    if number_of_columns == 1:
+        return [original_name]
+    else:
+        return [original_name + '_' + str(i) for i in range(get_number_of_columns(transformed_target))]
+
+
+def get_inverse_transformed_target_column_names(transformed_target):
+    column_names = get_column_names(transformed_target)
+    if len(column_names) == 1:
+        return column_names
+    else:
+        return [name.rsplit('_', 1)[0] for name in column_names]
+
+
+def set_column_names(data, column_names):
+    data_new = data.copy()
+    if isinstance(data, pd.Series):
+        data_new.name = column_names[0]
+    else:
+        data_new.columns = column_names
+    return data_new
+
+
+def as_pandas_structure(to_convert, index=None, columns=None):
+    name = None if columns is None else columns[0]
+    if len(to_convert.shape) == 1:
+        return pd.Series(to_convert, index=index, name=name)
+    elif len(to_convert.shape) == 2 and to_convert.shape[1] == 1:
+        if isinstance(to_convert, pd.DataFrame):
+            return pd.Series(to_convert.squeeze(), index=index, name=name)
+        else:
+            return pd.Series(to_convert.ravel(), index=index, name=name)
+    else:
+        return pd.DataFrame(to_convert, index=index, columns=columns)
+
+
+class RankingBinarizerTransformer(BaseEstimator, TransformerMixin):
+
+    def __init__(self):
+        self._max_rank = None
+
+    def fit(self, X, y=None):
+        # check whether rankings are valid
+        all_integers = np.array_equal(X.values, X.values.astype(int))
+        no_negatives = (X >= 0).all().item()
+
+        assert all_integers and no_negatives, "Ranking has invalid format"
+
+        self._max_rank = int(X.max().item())
+
+        return self
+
+    def transform(self, X, y=None):
+        X_new = X.copy()
+        for i in range(self._max_rank):
+            X_new[str(i)] = (X > i).astype(int)
+        X_new = X_new.drop(columns=X.columns)
+        return X_new
+
+    def inverse_transform(self, X, y=None):
+        X_new = X.copy()
+        transformed_columns = [str(i) for i in range(self._max_rank)]
+        X_new = X_new.sum(axis=1)
+        X_new = X_new.drop(columns=transformed_columns)
+        return X_new
+
+
+class GroupwiseTargetTransformer(BaseEstimator, TransformerMixin):
+    def __init__(
+        self,
+        transformer,
+        group_by=None
+    ):
+        if group_by is None:
+            group_by = []
+        self.transformer = transformer
+        self.group_by = group_by
+        self._default_group = ''
+        self._transformers_by_group = {}
+
+    def _fit_target(self, group, y):
+        self._transformers_by_group[group] = copy.deepcopy(self.transformer).fit(pd.DataFrame(y))
+
+    def _transform_target(self, group, y, index):
+        return as_pandas_structure(self._transformers_by_group[group].transform(pd.DataFrame(y)), index=index)
+
+    def _inverse_transform_target(self, group, y, index):
+        return as_pandas_structure(self._transformers_by_group[group].inverse_transform(pd.DataFrame(y)), index=index)
+
+    def fit(self, X, y=None):
+        if y is not None:
+            if len(self.group_by) == 0:
+                self._fit_target(self._default_group, y)
+            else:
+                df = pd.concat([X, y], axis=1)
+                for group, data in df.groupby(by=self.group_by):
+                    self._fit_target(group, data[pd.DataFrame(y).columns])
+        return self
+
+    def transform(self, X, y=None):
+        if y is not None:
+            if len(self.group_by) == 0:
+                y_new = self._transform_target(self._default_group, y, X.index)
+            else:
+                df = pd.concat([X, as_pandas_structure(y, index=X.index)], axis=1)
+                y_new = pd.Series()
+                for group, data in df.groupby(by=self.group_by):
+                    y_new = pd.concat([y_new, self._transform_target(group, data[pd.DataFrame(y).columns], data.index)])
+                y_new = y_new.reindex(X.index)
+            y = set_column_names(y_new, get_transformed_target_column_names(y, y_new))
+        return X, y
+
+    def fit_transform(self, X, y=None, **fit_params):
+        return self.fit(X, y).transform(X, y)
+
+    def inverse_transform(self, X, y=None):
+        if y is not None:
+            if len(self.group_by) == 0:
+                y_new = self._inverse_transform_target(self._default_group, y, X.index)
+            else:
+                df = pd.concat([X, as_pandas_structure(y, index=X.index)], axis=1)
+                y_new = pd.Series()
+                for group, data in df.groupby(by=self.group_by):
+                    y_new = pd.concat([
+                        y_new,
+                        self._inverse_transform_target(group, data[pd.DataFrame(y).columns], data.index)
+                    ])
+                y_new = y_new.reindex(X.index)
+            y = set_column_names(y_new, get_inverse_transformed_target_column_names(y_new))
+        return X, y
 
 
 class TargetScalerTransformer(BaseEstimator, TransformerMixin):
