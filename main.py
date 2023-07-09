@@ -1,3 +1,6 @@
+import os
+os.environ['PYTHONWARNINGS'] = 'ignore'
+
 import pandas as pd
 import argparse
 
