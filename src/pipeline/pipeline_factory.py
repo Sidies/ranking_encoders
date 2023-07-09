@@ -8,6 +8,7 @@ from category_encoders.target_encoder import TargetEncoder
 from enum import Enum
 from lightgbm import LGBMRegressor
 from sklearn.dummy import DummyClassifier, DummyRegressor
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
@@ -260,7 +261,7 @@ class PipelineFactory:
                     TargetEncoder(),
                     TargetEncoder()
                 )),
-                ("estimator", DecisionTreeRegressor())
+                ("estimator", RandomForestRegressor())
             ]
 
         elif model_type == "pointwise_normalized_regression_no_search" \
@@ -309,7 +310,7 @@ class PipelineFactory:
                     TargetEncoder(),
                     TargetEncoder()
                 )),
-                ("estimator", DecisionTreeRegressor())
+                ("estimator", RandomForestRegressor())
             ]
 
         elif model_type == "pointwise_classification_no_search" or model_type == ModelType.POINTWISE_CLASSIFICATION_NO_SEARCH:
@@ -388,7 +389,7 @@ class PipelineFactory:
                     OneHotEncoder(),
                     OneHotEncoder()
                 )),
-                ("estimator", DecisionTreeRegressor())
+                ("estimator", DecisionTreeClassifier())
             ]
 
         elif model_type == "pointwise_normalized_regression_bayes_search" \
@@ -437,7 +438,7 @@ class PipelineFactory:
                     TargetEncoder(),
                     TargetEncoder()
                 )),
-                ("estimator", DecisionTreeRegressor())
+                ("estimator", RandomForestRegressor())
             ]
 
             evaluation = EvaluationType.BAYES_SEARCH
@@ -456,7 +457,7 @@ class PipelineFactory:
                 'general_transformer__tuning_encoder': Categorical([OneHotEncoder(), OrdinalEncoder(), TargetEncoder()]),
                 'general_transformer__scoring_encoder': Categorical([OneHotEncoder(), OrdinalEncoder(), TargetEncoder()]),
                 'estimator__max_depth': Categorical([1, 10, 50, 100, 250, 500, None]),  # default=None
-                'estimator__min_samples_split': Integer(2, 5),  # default=2
+                'estimator__n_estimators': Integer(50, 200),  # default=100
                 'estimator__min_samples_leaf': Integer(1, 5),  # default=1
                 'estimator__max_features': Categorical([None, 'sqrt', 'log2']),  # default=None
             }
@@ -560,7 +561,7 @@ class PipelineFactory:
                     OneHotEncoder(),
                     OneHotEncoder()
                 )),
-                ("estimator", DecisionTreeRegressor())
+                ("estimator", DecisionTreeClassifier())
             ]
 
             evaluation = EvaluationType.BAYES_SEARCH
