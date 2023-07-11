@@ -17,7 +17,7 @@ from skopt.space import Categorical, Integer, Real
 
 from src import configuration as config
 from src.features.encoder_utils import load_graph
-from src.pipeline.evaluation.evaluation_utils import RegressionSpearmanScorer, PointwiseSpearmanScorer
+from src.pipeline.evaluation.evaluation_utils import SpearmanScorer
 from src.pipeline.model_pipeline import ModelPipeline, EvaluationType
 from src.pipeline.pipeline_transformers import PoincareEmbedding, OpenMLMetaFeatureTransformer, \
     GeneralPurposeEncoderTransformer, ColumnKeeper, GroupwiseTargetTransformer, RankingBinarizerTransformer, \
@@ -185,7 +185,7 @@ class PipelineFactory:
             ]
 
         elif model_type == "regre_bayes_search" or model_type == ModelType.REGRE_BAYES_SEARCH:
-            scorer = RegressionSpearmanScorer(factors=split_factors)
+            scorer = SpearmanScorer(factors=split_factors)
 
             pipeline_steps = [
                 ("encoder_transformer", PoincareEmbedding(
@@ -280,7 +280,7 @@ class PipelineFactory:
             original_target = target
             target = get_column_names(transformed_target)
 
-            scorer = PointwiseSpearmanScorer(transformer=target_transformer)
+            scorer = SpearmanScorer(factors=split_factors, transformer=target_transformer)
 
             pipeline_steps = [
                 ("keeper", ColumnKeeper(columns=[
@@ -359,7 +359,7 @@ class PipelineFactory:
             original_target = target
             target = get_column_names(transformed_target)
 
-            scorer = PointwiseSpearmanScorer(transformer=target_transformer)
+            scorer = SpearmanScorer(factors=split_factors, transformer=target_transformer)
 
             pipeline_steps = [
                 ("keeper", ColumnKeeper(columns=[
@@ -408,7 +408,7 @@ class PipelineFactory:
             original_target = target
             target = get_column_names(transformed_target)
 
-            scorer = PointwiseSpearmanScorer(transformer=target_transformer)
+            scorer = SpearmanScorer(factors=split_factors, transformer=target_transformer)
 
             pipeline_steps = [
                 ("keeper", ColumnKeeper(columns=[
@@ -531,7 +531,7 @@ class PipelineFactory:
             original_target = target
             target = get_column_names(transformed_target)
 
-            scorer = PointwiseSpearmanScorer(transformer=target_transformer)
+            scorer = SpearmanScorer(factors=split_factors, transformer=target_transformer)
 
             pipeline_steps = [
                 ("keeper", ColumnKeeper(columns=[
