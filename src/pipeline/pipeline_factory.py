@@ -376,7 +376,6 @@ class PipelineFactory:
                     batch_size=50,
                     size=3,
                     encoder=OneHotEncoder()
-
                 )),
                 ("dataset_transformer", OpenMLMetaFeatureTransformer(
                     nan_ratio_feature_drop_threshold=0.25,
@@ -395,14 +394,6 @@ class PipelineFactory:
             
         elif model_type == "pairwise_classification_no_search" or model_type == ModelType.PAIRWISE_CLASSIFICATION_NO_SEARCH:
             pipeline_steps = [
-                ("encoder_transformer", PoincareEmbedding(
-                    load_graph(config.ROOT_DIR / "data/external/graphs/encodings_graph.adjlist"),
-                    epochs=500,
-                    batch_size=50,
-                    size=3,
-                    encoder=category_encoders.one_hot.OneHotEncoder()
-
-                )),
                 ("dataset_transformer", OpenMLMetaFeatureTransformer(
                     nan_ratio_feature_drop_threshold=0.25,
                     imputer=SimpleImputer(strategy='mean'),
@@ -412,8 +403,8 @@ class PipelineFactory:
                 )),
                 ("general_transformer", GeneralPurposeEncoderTransformer(
                     OneHotEncoder(),
-                    TargetEncoder(),
-                    TargetEncoder()
+                    OneHotEncoder(),
+                    OneHotEncoder()
                 )),
                 ("estimator", DecisionTreeClassifier())
             ]

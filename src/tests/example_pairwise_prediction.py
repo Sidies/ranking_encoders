@@ -33,7 +33,6 @@ new_index = "encoder"
 df_train = config.load_dataset(DATA_DIR / "dataset_rank_train.csv")
 #df_test = ld.load_dataset(DATA_DIR / "dataset_rank_test.csv")  # as usual, replace it with your own validation set
 df_train, df_test = train_test_split(df_train, test_size=0.2, random_state=42)
-# Hier liegt das Problem, er braucht das vorherige df_test vor dem groupby
 X_train = df_train[factors + ["encoder"]].groupby(factors).agg(lambda x: np.nan).reset_index()[factors]
 X_test = df_test[factors + ["encoder"]].groupby(factors).agg(lambda x: np.nan).reset_index()[factors]
 

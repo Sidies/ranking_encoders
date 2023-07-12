@@ -15,6 +15,7 @@ from skopt import BayesSearchCV
 from src import configuration as config
 from src.pipeline.evaluation import evaluation_utils as er
 from src.pipeline.evaluation.custom_grid_search import custom_grid_search
+from src.pipeline.evaluation.custom_cross_validation import custom_cross_validation, pairwise_custom_cross_validation
 from src.features.pairwise_utils import prepare_data
 
 
@@ -126,7 +127,7 @@ class ModelPipeline:
             else:
                 if self._as_pairwise:
                     df_train, df_test = train_test_split(self._df, test_size=0.2, random_state=42)
-                    X_train, X_test, y_train = self._prepare_pairwise_data(df_train, df_test, self._target, self._split_factors)
+                    X_train, X_test, y_train = self._prepare_pairwise_data(df_train, df_test, target=self._target, split_factors=self._split_factors)
                 else:
                     data = self._df
                     X_train, X_test, y_train, y_test = er.custom_train_test_split(
@@ -149,7 +150,7 @@ class ModelPipeline:
                     self._validation_performance_scores['validation_average_spearman'] = er.average_spearman(
                     rankings_test,
                     rankings_pred
-                )
+                    )
 
             elif not is_regression:
                 self._pipeline.fit(X_train, y_train)
@@ -193,37 +194,47 @@ class ModelPipeline:
                 )
 
         elif self._evaluation == EvaluationType.CROSS_VALIDATION:
-            if self._y_train is None:
-                    X_train, y_train = self._split_target(self._df, self._target)
+            
+            if self._as_pairwise:
+                self._validation_performance_scores = pairwise_custom_cross_validation(
+                    self._pipeline,
+                    self._df,
+                    self._split_factors,
+                    self._target,
+                    cv=self._n_folds,
+                    verbose=self._verbose_level
+                )
             else:
-                y_train = self._y_train
-                X_train = self._df
-            self._pipeline.fit(X_train, y_train)
-            self._validation_performance_scores = er.custom_cross_validation(
-                self._pipeline,
-                self._df,
-                self._split_factors,
-                self._target,
-                self._target_transformer,
-                self._scorer,
-                cv=self._n_folds,
-                verbose=self._verbose_level
-            )
+                X_train, y_train = self._split_target(self._df, self._target)
+
+                self._pipeline.fit(X_train, y_train)
+                self._validation_performance_scores = custom_cross_validation(
+                    self._pipeline,
+                    self._df,
+                    self._split_factors,
+                    self._target,
+                    self._target_transformer,
+                    self._scorer,
+                    cv=self._n_folds,
+                    verbose=self._verbose_level
+                )
 
         elif self._evaluation == EvaluationType.GRID_SEARCH:
-            if self._y_train is None:
-                    X_train, y_train = self._split_target(self._df, self._target)
+            if self._as_pairwise:
+                df_train, df_test = train_test_split(self._df, test_size=0.2, random_state=42)
+                X_train, X_test, y_train = self._prepare_pairwise_data(df_train, df_test, self._target, self._split_factors)
             else:
-                y_train = self._y_train
-                X_train = self._df
+                X_train, y_train = self._split_target(self._df, self._target)
+
             self._validation_performance_scores = self._do_grid_search(X_train, y_train, param_grid=self._param_grid)
 
         elif self._evaluation == EvaluationType.BAYES_SEARCH:
-            if self._y_train is None:
-                    X_train, y_train = self._split_target(self._df, self._target)
+            if self._as_pairwise:
+                df_train, df_test = train_test_split(self._df, test_size=0.2, random_state=42)
+                X_train, X_test, y_train = self._prepare_pairwise_data(df_train, df_test, self._target, self._split_factors)
             else:
-                y_train = self._y_train
-                X_train = self._df
+                X_train, y_train = self._split_target(self._df, self._target)
+
             self._validation_performance_scores = self._do_bayes_search(
                 X_train,
                 y_train,
