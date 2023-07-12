@@ -39,6 +39,7 @@ class ModelType(Enum):
     POINTWISE_NORMALIZED_REGRESSION_BAYES_SEARCH = "pointwise_normalized_regression_bayes_search"
     POINTWISE_CLASSIFICATION_BAYES_SEARCH = "pointwise_classification_bayes_search"
     POINTWISE_ORDINAL_REGRESSION_BAYES_SEARCH = "pointwise_ordinal_regression_bayes_search"
+    PAIRWISE_CLASSIFICATION_NO_SEARCH = "pairwise_classification_no_search"
 
 
 class PipelineFactory:
@@ -389,6 +390,31 @@ class PipelineFactory:
                     OneHotEncoder()
                 )),
                 ("estimator", DecisionTreeRegressor())
+            ]
+            
+        elif model_type == "pairwise_classification_no_search" or model_type == ModelType.PAIRWISE_CLASSIFICATION_NO_SEARCH:
+            pipeline_steps = [
+                ("encoder_transformer", PoincareEmbedding(
+                    load_graph(config.ROOT_DIR / "data/external/graphs/encodings_graph.adjlist"),
+                    epochs=500,
+                    batch_size=50,
+                    size=3,
+                    encoder=category_encoders.one_hot.OneHotEncoder()
+
+                )),
+                ("dataset_transformer", OpenMLMetaFeatureTransformer(
+                    nan_ratio_feature_drop_threshold=0.25,
+                    imputer=SimpleImputer(strategy='mean'),
+                    scaler=StandardScaler(),
+                    expected_pca_variance=0.6,
+                    encoder=None
+                )),
+                ("general_transformer", GeneralPurposeEncoderTransformer(
+                    OneHotEncoder(),
+                    TargetEncoder(),
+                    TargetEncoder()
+                )),
+                ("estimator", DecisionTreeClassifier())
             ]
 
         elif model_type == "pointwise_normalized_regression_bayes_search" \

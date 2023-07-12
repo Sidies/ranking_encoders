@@ -6,6 +6,7 @@ import pandas as pd
 from pathlib import Path
 import warnings
 from typing import Union
+from src.features.pairwise_utils import prepare_data
 
 def ignore_warnings():
     """
@@ -35,17 +36,27 @@ def load_rankings(path: Union[Path, str]) -> pd.DataFrame:
     out.columns.name = ("dataset", "model", "tuning", "scoring")
     return out
 
+
 def load_whole_data():
     x_train_df = load_dataset(os.path.join(ROOT_DIR, 'data/raw/dataset.csv'))
     y_train_df = load_rankings(os.path.join(ROOT_DIR, 'data/raw/rankings.csv'))
     merged_df = pd.concat([x_train_df, y_train_df], axis=1)
     return merged_df, x_train_df, y_train_df
 
+
 def load_traindata_for_regression():
     return load_dataset(os.path.join(ROOT_DIR, 'data/raw/dataset_train.csv'))
 
+
 def load_traindata_for_pointwise():
     return load_dataset(os.path.join(ROOT_DIR, 'data/raw/dataset_rank_train.csv'))
+
+
+def load_traindata_for_pairwise():
+    df_train = load_dataset(os.path.join(ROOT_DIR, 'data/raw/dataset_rank_train.csv'))
+    X_train, X_test, y_train = prepare_data(df_train, factors=["dataset", "model", "tuning", "scoring"], target="rank", column_to_compare="encoder")
+    return X_train, X_test, y_train
+
 
 def load_testdata_for_regression():
     return load_dataset(os.path.join(ROOT_DIR, 'data/raw/X_test.csv'))

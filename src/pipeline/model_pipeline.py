@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import enum
-
+import src.features.pairwise_utils as pu
 from category_encoders.one_hot import OneHotEncoder
 from joblib import dump, load
 from sklearn.base import is_classifier, is_regressor
@@ -15,6 +15,7 @@ from skopt import BayesSearchCV
 from src import configuration as config
 from src.pipeline.evaluation import evaluation_utils as er
 from src.pipeline.evaluation.custom_grid_search import custom_grid_search
+from src.features.pairwise_utils import prepare_data
 
 
 class EvaluationType(enum.Enum):
@@ -48,7 +49,8 @@ class ModelPipeline:
             bayes_n_points=4,
             bayes_cv=4,
             bayes_n_jobs=-1,
-            workers=1
+            workers=1,
+            as_pairwise=False
     ):
         """
         Initialize the data pipeline
@@ -74,6 +76,8 @@ class ModelPipeline:
             The number of folds to use for cross validation. Only used if evaluation is "cross_validation"
         workers: int
             The number of workers to use for parallel processing
+        as_pairwise: bool
+            Whether the target is pairwise or not.
         """
         self._pipeline = Pipeline(steps=steps)
         self._df = df
@@ -92,6 +96,7 @@ class ModelPipeline:
         self._bayes_cv = bayes_cv
         self._bayes_n_jobs = bayes_n_jobs
         self._workers = workers
+        self._as_pairwise = as_pairwise
 
     # start the pipeline
     def run(self):
@@ -117,16 +122,36 @@ class ModelPipeline:
             if self._split_factors == []:
                 X_train, y_train = self._split_target(self._df, self._target)
                 X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=0.2, random_state=42)
+                
             else:
-                X_train, X_test, y_train, y_test = er.custom_train_test_split(
-                    self._df,
-                    self._split_factors,
-                    self._target,
-                    train_size=0.75,
-                    random_state=42
+                if self._as_pairwise:
+                    df_train, df_test = train_test_split(self._df, test_size=0.2, random_state=42)
+                    X_train, X_test, y_train = self._prepare_pairwise_data(df_train, df_test, self._target, self._split_factors)
+                else:
+                    data = self._df
+                    X_train, X_test, y_train, y_test = er.custom_train_test_split(
+                        data,
+                        self._split_factors,
+                        self._target,
+                        train_size=0.75,
+                        random_state=42
+                    )
+                    
+            if self._as_pairwise:
+                    y_pred = pd.DataFrame(self._pipeline.fit(X_train, y_train).predict(X_test), columns=y_train.columns, index=X_test.index)
+                    df_pred = pd.merge(df_test,
+                                    pu.join_pairwise2rankings(X_test, y_pred, self._split_factors),
+                                    on=self._split_factors + ["encoder"], how="inner")
+                    # use average spearman metric
+                    new_index = "encoder"
+                    rankings_test = er.get_rankings(df_pred, factors=self._split_factors, new_index=new_index, target=self._target)
+                    rankings_pred = er.get_rankings(df_pred, factors=self._split_factors, new_index=new_index, target=self._target + "_pred")
+                    self._validation_performance_scores['validation_average_spearman'] = er.average_spearman(
+                    rankings_test,
+                    rankings_pred
                 )
 
-            if not is_regression:
+            elif not is_regression:
                 self._pipeline.fit(X_train, y_train)
                 y_pred = self._pipeline.predict(X_test)
                 self._validation_performance_scores['validation_accuracy'] = [accuracy_score(y_test, y_pred)]
@@ -168,7 +193,11 @@ class ModelPipeline:
                 )
 
         elif self._evaluation == EvaluationType.CROSS_VALIDATION:
-            X_train, y_train = self._split_target(self._df, self._target)
+            if self._y_train is None:
+                    X_train, y_train = self._split_target(self._df, self._target)
+            else:
+                y_train = self._y_train
+                X_train = self._df
             self._pipeline.fit(X_train, y_train)
             self._validation_performance_scores = er.custom_cross_validation(
                 self._pipeline,
@@ -182,11 +211,19 @@ class ModelPipeline:
             )
 
         elif self._evaluation == EvaluationType.GRID_SEARCH:
-            X_train, y_train = self._split_target(self._df, self._target)
+            if self._y_train is None:
+                    X_train, y_train = self._split_target(self._df, self._target)
+            else:
+                y_train = self._y_train
+                X_train = self._df
             self._validation_performance_scores = self._do_grid_search(X_train, y_train, param_grid=self._param_grid)
 
         elif self._evaluation == EvaluationType.BAYES_SEARCH:
-            X_train, y_train = self._split_target(self._df, self._target)
+            if self._y_train is None:
+                    X_train, y_train = self._split_target(self._df, self._target)
+            else:
+                y_train = self._y_train
+                X_train = self._df
             self._validation_performance_scores = self._do_bayes_search(
                 X_train,
                 y_train,
@@ -571,3 +608,7 @@ class ModelPipeline:
         y_train = df[target]
 
         return X_train, y_train
+
+    def _prepare_pairwise_data(self, df_train, df_test, target, split_factors):
+        X_train, X_test, y_train = prepare_data(df_train, df_test, target=target, factors=split_factors)
+        return X_train, X_test, y_train
