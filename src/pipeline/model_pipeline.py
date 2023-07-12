@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import enum
+import optuna
 import src.features.pairwise_utils as pu
 from category_encoders.one_hot import OneHotEncoder
 from joblib import dump, load
@@ -24,6 +25,7 @@ class EvaluationType(enum.Enum):
     CROSS_VALIDATION = "cross_validation"
     GRID_SEARCH = "grid_search"
     BAYES_SEARCH = "bayes_search"
+    OPTUNA = "optuna"
 
 
 class ModelPipeline:
@@ -51,7 +53,8 @@ class ModelPipeline:
             bayes_cv=4,
             bayes_n_jobs=-1,
             workers=1,
-            as_pairwise=False
+            as_pairwise=False,
+            opt_iterations=100
     ):
         """
         Initialize the data pipeline
@@ -98,6 +101,7 @@ class ModelPipeline:
         self._bayes_n_jobs = bayes_n_jobs
         self._workers = workers
         self._as_pairwise = as_pairwise
+        self._opt_iterations = opt_iterations
 
     # start the pipeline
     def run(self):
@@ -248,6 +252,9 @@ class ModelPipeline:
                 cv=self._bayes_cv,
                 n_jobs=self._bayes_n_jobs
             )
+            
+        elif self._evaluation == "optuna" or self._evaluation == EvaluationType.OPTUNA:
+            study = self._do_optuna_search(param_grid=self._param_grid, cv=self._n_folds, iterations=self._opt_iterations)
 
         else:
             raise Exception(f"Unknown evaluation type: {self._evaluation}")
@@ -278,6 +285,17 @@ class ModelPipeline:
                     else:
                         output = metric + ': ' + str(value)
                     print("    " + output)
+                    
+            # print the metrics for optuna     
+            elif self._evaluation == "optuna" or self._evaluation == EvaluationType.OPTUNA:
+                best_trials = study.best_trials
+                for i, trial in enumerate(best_trials):
+                    print("  Best Score for Objective {}: {}".format(study.directions[i], trial.values))
+                    print("  Best Params for Objective {}: ".format(study.directions[i]))
+                    print("  ---------")
+                    for key, value in trial.params.items():
+                        print("    {}: {}".format(key, value))
+                        
             else:
                 for metric, values in {**self._validation_performance_scores}.items():
                     output = metric + ': ' + np.array2string(np.mean(values), precision=4) \
@@ -644,6 +662,74 @@ class ModelPipeline:
         validation_performance_scores['average_spearman (5-fold)'] = list(validation_performance_scores.values())
 
         return validation_performance_scores
+    
+    
+    def _do_optuna_search(self, param_grid, cv=5, iterations=100):
+        encoder_choices = {}  # Dictionary to store encoder choices and their identifiers
+        def objective(trial):
+            for param_name, param_values in param_grid.items():
+                # get the type of the parameters in the list 
+                # suggest a value for the parameter
+                suggested_value = None
+                if type(param_values[0]) is int:
+                    suggested_value = trial.suggest_int(param_name, param_values[0], param_values[1])
+                elif type(param_values[0]) is float:
+                    suggested_value = trial.suggest_float(param_name, param_values[0], param_values[1])
+                elif type(param_values[0]) is str:
+                    suggested_value = trial.suggest_categorical(param_name, param_values)
+                elif type(param_values[0]) is bool:
+                    suggested_value = trial.suggest_categorical(param_name, param_values)
+                else:
+                    # Handle the case when param_values contains objects
+                    if param_name not in encoder_choices:
+                        # Assign a unique identifier to each encoder object
+                        encoder_choices[param_name] = [param_value for param_value in param_values]
+
+                    suggested_value_id = trial.suggest_categorical(param_name, list(range(len(encoder_choices[param_name]))))
+                    suggested_value = encoder_choices[param_name][suggested_value_id]                    
+                    
+                # set the suggested value
+                try:
+                    self._pipeline.set_params(**{param_name: suggested_value})
+                except:
+                    print('Could not set parameter ' + param_name + ' to value ' + str(suggested_value) + '.')
+        
+            # perform the cross validation
+            if self._as_pairwise:
+                self._validation_performance_scores = pairwise_custom_cross_validation(
+                    self._pipeline,
+                    self._df,
+                    self._split_factors,
+                    self._target,
+                    cv=self._n_folds,
+                    verbose=self._verbose_level
+                )
+            else:
+                X_train, y_train = self._split_target(self._df, self._target)
+
+                self._pipeline.fit(X_train, y_train)
+                self._validation_performance_scores = custom_cross_validation(
+                    self._pipeline,
+                    self._df,
+                    self._split_factors,
+                    self._target,
+                    self._target_transformer,
+                    self._scorer,
+                    cv=self._n_folds,
+                    verbose=self._verbose_level
+                )
+            
+            error = round(np.mean(list(self._validation_performance_scores.values())), 4)
+            
+            # when returning multiple values optuna takes the first value as the objective value
+            return error
+        
+        show_progress_bar = True if self._verbose_level > 0 else False
+        study = optuna.create_study(direction="maximize")
+        study.optimize(objective, n_trials=iterations, n_jobs=-1, show_progress_bar=show_progress_bar)
+        
+        return study
+    
 
     def _split_target(self, df, target):
         """
