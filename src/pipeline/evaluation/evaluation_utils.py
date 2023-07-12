@@ -222,76 +222,7 @@ def average_spearman(rf1: pd.DataFrame, rf2: pd.DataFrame) -> np.array:
     return np.nanmean(list_spearman(rf1, rf2))
 
 
-class RegressionSpearmanScorer(_PredictScorer):
-    """
-    Scorer object that can be used to evaluate model performance. It calculates
-    a score by first assigning targets to a grouping and then calculating
-    rankings. The rankings of the true and the predicted target are then
-    compared with Spearman's correlation coefficient. The grouping is defined by
-    the submitted factors.
-
-    Parameters
-    ----------
-    factors: list of str
-        The features to group the data by.
-    """
-    def __init__(
-            self,
-            factors=None
-    ):
-        super().__init__(None, 1, None)
-        if factors is None:
-            factors = ["dataset", "model", "tuning", "scoring"]
-        self.factors = factors
-
-    def _score(self, method_caller, estimator, X, y_true, sample_weight=None):
-        """Evaluate predicted target values for X relative to y_true.
-
-        Parameters
-        ----------
-        method_caller : callable
-            Returns predictions given an estimator, method name, and other
-            arguments, potentially caching results.
-
-        estimator : object
-            Trained estimator to use for scoring. Must have a `predict`
-            method; the output of that is used to compute the score.
-
-        X : {array-like, sparse matrix}
-            Test data that will be fed to estimator.predict.
-
-        y_true : array-like
-            Gold standard target values for X.
-
-        sample_weight : array-like of shape (n_samples,), default=None
-            Sample weights.
-
-        Returns
-        -------
-        score : float
-            Score function applied to prediction of estimator on X.
-        """
-        y_pred = pd.Series(method_caller(estimator, "predict", X), index=y_true.index, name=y_true.name + "_pred")
-
-        df = pd.concat([X, y_true, y_pred], axis=1)
-
-        y_true_rankings = get_rankings(
-            df=df,
-            factors=self.factors,
-            new_index='encoder',
-            target=y_true.name
-        )
-        y_pred_rankings = get_rankings(
-            df=df,
-            factors=self.factors,
-            new_index='encoder',
-            target=y_true.name + "_pred"
-        )
-
-        return average_spearman(y_true_rankings, y_pred_rankings)
-
-
-class PointwiseSpearmanScorer(_PredictScorer):
+class SpearmanScorer(_PredictScorer):
     """
     Scorer object that can be used to evaluate model performance. It calculates
     the score by comparing the true and predicted rankings using the Spearman's
@@ -306,9 +237,13 @@ class PointwiseSpearmanScorer(_PredictScorer):
     """
     def __init__(
             self,
+            factors=None,
             transformer=None
     ):
         super().__init__(None, 1, None)
+        if factors is None:
+            factors = ['dataset', 'model', 'tuning', 'scoring']
+        self.factors = factors
         self.transformer = transformer
 
     def _score(self, method_caller, estimator, X, y_true, sample_weight=None):
@@ -349,16 +284,29 @@ class PointwiseSpearmanScorer(_PredictScorer):
             _, y_true = self.transformer.inverse_transform(X, y_true)
             _, y_pred = self.transformer.inverse_transform(X, y_pred)
 
-        y_true = pd.DataFrame(
+        y_true = pd.Series(
             y_true,
             index=y_true.index,
         )
-        y_pred = pd.DataFrame(
+        y_pred = pd.Series(
             y_pred,
             index=y_true.index,
         )
+        y_true.name = 'target'
+        y_pred.name = 'target_pred'
 
-        y_true.columns = ['target']
-        y_pred.columns = ['target']
+        df = pd.concat([X, y_true, y_pred], axis=1)
+        y_true_rankings = get_rankings(
+            df=df,
+            factors=self.factors,
+            new_index='encoder',
+            target=y_true.name
+        )
+        y_pred_rankings = get_rankings(
+            df=df,
+            factors=self.factors,
+            new_index='encoder',
+            target=y_pred.name
+        )
 
-        return average_spearman(y_true, y_pred)
+        return average_spearman(y_true_rankings, y_pred_rankings)

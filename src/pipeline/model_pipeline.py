@@ -518,7 +518,7 @@ class ModelPipeline:
             self,
             X_train: pd.DataFrame,
             y_train, param_grid,
-            scoring=er.RegressionSpearmanScorer,
+            scoring=er.SpearmanScorer,
             cv=4,
             n_iter=200,
             n_points=4,
