@@ -1,13 +1,7 @@
 import numpy as np
 import pandas as pd
-import warnings
-
-from scipy.stats import ConstantInputWarning, spearmanr
-from sklearn.metrics._scorer import _PredictScorer
-from sklearn.model_selection import train_test_split, KFold
 from sklearn.pipeline import Pipeline
 from tqdm import tqdm
-from typing import Iterable, List
 
 from src.features.pairwise_utils import prepare_data, join_pairwise2rankings
 from src.pipeline.evaluation.evaluation_utils import average_spearman, get_rankings, custom_train_test_split
@@ -94,7 +88,13 @@ def pairwise_custom_cross_validation(
     disable_tqdm = (verbose == 0)
     validation_performance_scores = {}
     for i in tqdm(range(cv), disable=disable_tqdm):         
-        df_train, df_test = train_test_split(df, train_size=0.2, random_state=i)
+        X_train, X_test, y_train, y_test = custom_train_test_split(df, factors=factors, target=target, train_size=0.8, random_state=42)
+
+        df_train = X_train.copy()
+        df_train[target] = y_train
+        df_test = X_test.copy()
+        df_test[target] = y_test
+
         X_train, X_test, y_train = prepare_data(df_train, df_test, target=target, factors=factors)
 
         y_pred = pd.DataFrame(pipeline.fit(X_train, y_train).predict(X_test), columns=y_train.columns, index=X_test.index)

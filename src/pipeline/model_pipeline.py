@@ -14,7 +14,7 @@ from skopt import BayesSearchCV
 
 from src import configuration as config
 from src.pipeline.evaluation import evaluation_utils as er
-from src.pipeline.evaluation.custom_grid_search import custom_grid_search
+from src.pipeline.evaluation.custom_grid_search import custom_grid_search, pairwise_custom_grid_search
 from src.pipeline.evaluation.custom_cross_validation import custom_cross_validation, pairwise_custom_cross_validation
 from src.features.pairwise_utils import prepare_data
 
@@ -126,8 +126,14 @@ class ModelPipeline:
                 
             else:
                 if self._as_pairwise:
-                    df_train, df_test = train_test_split(self._df, test_size=0.2, random_state=42)
-                    X_train, X_test, y_train = self._prepare_pairwise_data(df_train, df_test, target=self._target, split_factors=self._split_factors)
+                    X_train, X_test, y_train, y_test = er.custom_train_test_split(self._df, factors=self._split_factors, target=self._target, train_size=0.8, random_state=42)
+
+                    df_train = X_train.copy()
+                    df_train["rank"] = y_train
+                    df_test = X_test.copy()
+                    df_test["rank"] = y_test
+                    
+                    X_train, X_test, y_train = self._prepare_pairwise_data(df_train, df_test, target=self._target, factors=self._split_factors)
                 else:
                     data = self._df
                     X_train, X_test, y_train, y_test = er.custom_train_test_split(
@@ -221,12 +227,9 @@ class ModelPipeline:
 
         elif self._evaluation == EvaluationType.GRID_SEARCH:
             if self._as_pairwise:
-                df_train, df_test = train_test_split(self._df, test_size=0.2, random_state=42)
-                X_train, X_test, y_train = self._prepare_pairwise_data(df_train, df_test, self._target, self._split_factors)
+                self._validation_performance_scores = self._do_pairwise_grid_search()
             else:
-                X_train, y_train = self._split_target(self._df, self._target)
-
-            self._validation_performance_scores = self._do_grid_search(X_train, y_train, param_grid=self._param_grid)
+                self._validation_performance_scores = self._do_grid_search()
 
         elif self._evaluation == EvaluationType.BAYES_SEARCH:
             if self._as_pairwise:
@@ -487,7 +490,7 @@ class ModelPipeline:
 
         return is_initialized
 
-    def _do_grid_search(self, X_train: pd.DataFrame, y_train, param_grid, cv=5, n_jobs=-1, scoring=None):
+    def _do_grid_search(self):
         """
         Perform grid search on the pipeline
 
@@ -524,6 +527,44 @@ class ModelPipeline:
             validation_performance_scores["results_per_parameter"] = results
 
         return validation_performance_scores
+    
+    
+    def _do_pairwise_grid_search(self):
+        """
+        Perform pairwise grid search on the pipeline
+
+        Parameters
+        ----------
+        param_grid: dict
+            The parameter grid
+        scoring: str
+            The scoring function
+        cv: int
+            The number of folds for cross validation
+        n_jobs: int
+            The number of jobs to run in parallel
+        """
+        print("Performing pairwise grid search") if self._verbose_level > 0 else None
+        validation_performance_scores = {}
+
+        results, best_params, max_score = pairwise_custom_grid_search(
+            self._pipeline,
+            self._df,
+            self._param_grid,
+            self._split_factors,
+            self._target,
+            cv=self._n_folds,
+            ParallelUnits=self._workers,
+            verbose=self._verbose_level
+        )
+
+        validation_performance_scores["best_score"] = max_score
+        validation_performance_scores["best_params"] = best_params
+        if self._verbose_level > 2:
+            validation_performance_scores["results_per_parameter"] = results
+
+        return validation_performance_scores
+
 
     def _do_bayes_search(
             self,
@@ -620,6 +661,6 @@ class ModelPipeline:
 
         return X_train, y_train
 
-    def _prepare_pairwise_data(self, df_train, df_test, target, split_factors):
-        X_train, X_test, y_train = prepare_data(df_train, df_test, target=target, factors=split_factors)
+    def _prepare_pairwise_data(self, df_train, df_test, target, factors):
+        X_train, X_test, y_train = prepare_data(df_train, df_test, target=target, factors=factors)
         return X_train, X_test, y_train

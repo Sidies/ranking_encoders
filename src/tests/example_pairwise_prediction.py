@@ -41,11 +41,16 @@ y_train = pd.merge(X_train,
                    pu.get_pairwise_target(df_train, features=factors, target="rank", column_to_compare="encoder"),
                    on=factors, how="left").drop(factors, axis=1).fillna(0)
 
+print(f"y_train shape: {y_train.shape}")
+
 dummy_pipe = Pipeline([("encoder", eu.NoY(OneHotEncoder())), ("model", DecisionTreeClassifier())])
 y_pred = pd.DataFrame(dummy_pipe.fit(X_train, y_train).predict(X_test), columns=y_train.columns, index=X_test.index)
 df_pred = pd.merge(df_test,
                    pu.join_pairwise2rankings(X_test, y_pred, factors),
                    on=factors + ["encoder"], how="inner")
+
+print(df_pred.head(50))
+print(df_pred["rank_pred"].value_counts())
 
 rankings_test = er.get_rankings(df_pred, factors=factors, new_index=new_index, target="rank")
 rankings_pred = er.get_rankings(df_pred, factors=factors, new_index=new_index, target="rank_pred")
