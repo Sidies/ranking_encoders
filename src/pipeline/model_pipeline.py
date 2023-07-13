@@ -287,14 +287,22 @@ class ModelPipeline:
                     print("    " + output)
                     
             # print the metrics for optuna     
-            elif self._evaluation == "optuna" or self._evaluation == EvaluationType.OPTUNA:
+            elif self._evaluation == "optuna" or self._evaluation == EvaluationMethod.OPTUNA:
+                self.study = study
                 best_trials = study.best_trials
-                for i, trial in enumerate(best_trials):
-                    print("  Best Score for Objective {}: {}".format(study.directions[i], trial.values))
-                    print("  Best Params for Objective {}: ".format(study.directions[i]))
-                    print("  ---------")
-                    for key, value in trial.params.items():
-                        print("    {}: {}".format(key, value))
+                self.best_params_ = {}
+                for i, metric_key in enumerate(performance_metrics.keys()):
+                    trial_with_highest_value = max(best_trials, key=lambda t: t.values[i])
+                    best_params = trial_with_highest_value.params
+                    # reset the encoder mapping
+                    for i in enumerate(self._param_grid.items()):
+                        if best_params[i[1][0]] not in self._param_grid[i[1][0]]:
+                            best_params[i[1][0]] = self._param_grid[i[1][0]][0]
+                    
+                    log("  Best Score for Metric {}: {}".format(metric_key, trial_with_highest_value.values))
+                    log("  Best Params for Metric {}: {}".format(metric_key, trial_with_highest_value.params))
+                    # add to best params as dict
+                    self.best_params_[metric_key] = trial_with_highest_value.params   
                         
             else:
                 for metric, values in {**self._validation_performance_scores}.items():
