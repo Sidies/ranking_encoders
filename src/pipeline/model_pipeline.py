@@ -670,14 +670,22 @@ class ModelPipeline:
             for param_name, param_values in param_grid.items():
                 # get the type of the parameters in the list 
                 # suggest a value for the parameter
+                # suggest a value for the parameter
                 suggested_value = None
-                if type(param_values[0]) is int:
+                
+                # Get the most occurring non-None type in the list of parameter values
+                param_types = [type(p) for p in param_values if p is not None]
+                if len(param_types) == 0:
+                    raise ValueError(f"All values for parameter {param_name} are None.")
+                most_common_type = max(set(param_types), key=param_types.count)
+                
+                if most_common_type is int:
                     suggested_value = trial.suggest_int(param_name, param_values[0], param_values[1])
-                elif type(param_values[0]) is float:
+                elif most_common_type is float:
                     suggested_value = trial.suggest_float(param_name, param_values[0], param_values[1])
-                elif type(param_values[0]) is str:
+                elif most_common_type is str:
                     suggested_value = trial.suggest_categorical(param_name, param_values)
-                elif type(param_values[0]) is bool:
+                elif most_common_type is bool:
                     suggested_value = trial.suggest_categorical(param_name, param_values)
                 else:
                     # Handle the case when param_values contains objects
@@ -692,7 +700,7 @@ class ModelPipeline:
                 try:
                     self._pipeline.set_params(**{param_name: suggested_value})
                 except:
-                    print('Could not set parameter ' + param_name + ' to value ' + str(suggested_value) + '.')
+                    log('Could not set parameter ' + param_name + ' to value ' + str(suggested_value) + '.')
         
             # perform the cross validation
             if self._as_pairwise:
@@ -727,6 +735,17 @@ class ModelPipeline:
         show_progress_bar = True if self._verbose_level > 0 else False
         study = optuna.create_study(direction="maximize")
         study.optimize(objective, n_trials=iterations, n_jobs=-1, show_progress_bar=show_progress_bar)
+        
+        # fit the pipeline with the best parameters
+        trial_with_highest_value = study.best_trial
+        best_params = trial_with_highest_value.params
+        # reset the encoder mapping
+        for i in enumerate(param_grid.items()):
+            if best_params[i[1][0]] not in param_grid[i[1][0]]:
+                best_params[i[1][0]] = param_grid[i[1][0]][0]
+        
+        self._pipeline.set_params(**best_params)
+        self._pipeline.fit(self._x_train_df, self._y_train_df)
         
         return study
     
