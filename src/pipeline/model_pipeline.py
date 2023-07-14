@@ -102,6 +102,7 @@ class ModelPipeline:
         self._workers = workers
         self._as_pairwise = as_pairwise
         self._opt_iterations = opt_iterations
+        self.best_params = None
 
     # start the pipeline
     def run(self):
@@ -287,22 +288,20 @@ class ModelPipeline:
                     print("    " + output)
                     
             # print the metrics for optuna     
-            elif self._evaluation == "optuna" or self._evaluation == EvaluationMethod.OPTUNA:
+            elif self._evaluation == "optuna" or self._evaluation == EvaluationType.OPTUNA:
                 self.study = study
-                best_trials = study.best_trials
+                best_trial = study.best_trial
                 self.best_params_ = {}
-                for i, metric_key in enumerate(performance_metrics.keys()):
-                    trial_with_highest_value = max(best_trials, key=lambda t: t.values[i])
-                    best_params = trial_with_highest_value.params
-                    # reset the encoder mapping
-                    for i in enumerate(self._param_grid.items()):
-                        if best_params[i[1][0]] not in self._param_grid[i[1][0]]:
-                            best_params[i[1][0]] = self._param_grid[i[1][0]][0]
-                    
-                    log("  Best Score for Metric {}: {}".format(metric_key, trial_with_highest_value.values))
-                    log("  Best Params for Metric {}: {}".format(metric_key, trial_with_highest_value.params))
-                    # add to best params as dict
-                    self.best_params_[metric_key] = trial_with_highest_value.params   
+                best_params = best_trial.params
+                # reset the encoder mapping
+                for i in enumerate(self._param_grid.items()):
+                    if best_params[i[1][0]] not in self._param_grid[i[1][0]]:
+                        best_params[i[1][0]] = self._param_grid[i[1][0]][0]
+                
+                print("  Best Score: {}".format(best_trial.value))
+                print("  Best Params: {}".format(best_trial.params))
+                # add to best params as dict
+                self.best_params = best_trial.params   
                         
             else:
                 for metric, values in {**self._validation_performance_scores}.items():
@@ -708,7 +707,7 @@ class ModelPipeline:
                 try:
                     self._pipeline.set_params(**{param_name: suggested_value})
                 except:
-                    log('Could not set parameter ' + param_name + ' to value ' + str(suggested_value) + '.')
+                    print('Could not set parameter ' + param_name + ' to value ' + str(suggested_value) + '.')
         
             # perform the cross validation
             if self._as_pairwise:
@@ -744,16 +743,17 @@ class ModelPipeline:
         study = optuna.create_study(direction="maximize")
         study.optimize(objective, n_trials=iterations, n_jobs=-1, show_progress_bar=show_progress_bar)
         
-        # fit the pipeline with the best parameters
-        trial_with_highest_value = study.best_trial
-        best_params = trial_with_highest_value.params
-        # reset the encoder mapping
-        for i in enumerate(param_grid.items()):
-            if best_params[i[1][0]] not in param_grid[i[1][0]]:
-                best_params[i[1][0]] = param_grid[i[1][0]][0]
+        # # fit the pipeline with the best parameters
+        # trial_with_highest_value = study.best_trial
+        # best_params = trial_with_highest_value.params
+        # # reset the encoder mapping
+        # for i in enumerate(param_grid.items()):
+        #     if best_params[i[1][0]] not in param_grid[i[1][0]]:
+        #         best_params[i[1][0]] = param_grid[i[1][0]][0]
         
-        self._pipeline.set_params(**best_params)
-        self._pipeline.fit(self._x_train_df, self._y_train_df)
+        # self._pipeline.set_params(**best_params)
+        # X_train, y_train = self._split_target(self._df, self._target)
+        # self._pipeline.fit(X_train, y_train)
         
         return study
     
