@@ -255,7 +255,7 @@ class ModelPipeline:
             )
             
         elif self._evaluation == "optuna" or self._evaluation == EvaluationType.OPTUNA:
-            study = self._do_optuna_search(param_grid=self._param_grid, cv=self._n_folds, iterations=self._opt_iterations)
+            study = self._do_optuna_search()
 
         else:
             raise Exception(f"Unknown evaluation type: {self._evaluation}")
@@ -473,6 +473,10 @@ class ModelPipeline:
         """
 
         # check if df contains the target column(s) and remove if necessary
+        if self._as_pairwise and 'encoder' in data.columns:
+            # drop the encoder column if there is one
+            data = data.drop('encoder', axis=1)
+        
         if isinstance(self._target, list):
             target = set(self._target)
         elif isinstance(self._target, pd.Index):
@@ -496,7 +500,7 @@ class ModelPipeline:
         predictions = self._pipeline.predict(data)
 
         # save the predictions
-        path = config.DATA_DIR / 'processed/regression_tyrell_prediction.csv'
+        path = config.DATA_DIR / 'processed/pairwise_tyrell_prediction.csv'
         print("Saving predictions to {}".format(path)) if self._verbose_level > 0 else None
         pd.DataFrame(predictions).to_csv(path, index=False, header=False)
 
@@ -671,10 +675,10 @@ class ModelPipeline:
         return validation_performance_scores
     
     
-    def _do_optuna_search(self, param_grid, cv=5, iterations=100):
+    def _do_optuna_search(self):
         encoder_choices = {}  # Dictionary to store encoder choices and their identifiers
         def objective(trial):
-            for param_name, param_values in param_grid.items():
+            for param_name, param_values in self._param_grid.items():
                 # get the type of the parameters in the list 
                 # suggest a value for the parameter
                 # suggest a value for the parameter
@@ -741,19 +745,38 @@ class ModelPipeline:
         
         show_progress_bar = True if self._verbose_level > 0 else False
         study = optuna.create_study(direction="maximize")
-        study.optimize(objective, n_trials=iterations, n_jobs=-1, show_progress_bar=show_progress_bar)
+        study.optimize(objective, n_trials=self._opt_iterations, n_jobs=-1, show_progress_bar=show_progress_bar)
         
         # # fit the pipeline with the best parameters
-        # trial_with_highest_value = study.best_trial
-        # best_params = trial_with_highest_value.params
-        # # reset the encoder mapping
-        # for i in enumerate(param_grid.items()):
-        #     if best_params[i[1][0]] not in param_grid[i[1][0]]:
-        #         best_params[i[1][0]] = param_grid[i[1][0]][0]
+        trial_with_highest_value = study.best_trial
+        best_params = trial_with_highest_value.params
+        # reset the encoder mapping
+        for i in enumerate(self._param_grid.items()):
+            if best_params[i[1][0]] not in self._param_grid[i[1][0]]:
+                best_params[i[1][0]] = self._param_grid[i[1][0]][0]
         
-        # self._pipeline.set_params(**best_params)
-        # X_train, y_train = self._split_target(self._df, self._target)
-        # self._pipeline.fit(X_train, y_train)
+        self._pipeline.set_params(**best_params)
+        # perform the cross validation once to fit the pipeline with the new parameters
+        if self._as_pairwise:
+            pairwise_custom_cross_validation(
+                self._pipeline,
+                self._df,
+                self._split_factors,
+                self._target,
+                cv=1,
+                verbose=0
+            )
+        else:
+            custom_cross_validation(
+                self._pipeline,
+                self._df,
+                self._split_factors,
+                self._target,
+                self._target_transformer,
+                self._scorer,
+                cv=1,
+                verbose=0
+            )
         
         return study
     

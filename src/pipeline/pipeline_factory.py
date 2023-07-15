@@ -14,6 +14,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from skopt.space import Categorical, Integer, Real
+from sklearn.multioutput import MultiOutputClassifier
 
 from src import configuration as config
 from src.features.encoder_utils import load_graph
@@ -67,6 +68,8 @@ class PipelineFactory:
             bayes_cv=None,
             bayes_n_jobs=None,
             verbose_level=0,
+            opt_iterations=0,
+            as_pairwise=False,
             **kwargs
     ):
         """
@@ -391,23 +394,6 @@ class PipelineFactory:
                 )),
                 ("estimator", DecisionTreeClassifier())
             ]
-            
-        elif model_type == "pairwise_classification_no_search" or model_type == ModelType.PAIRWISE_CLASSIFICATION_NO_SEARCH:
-            pipeline_steps = [
-                ("dataset_transformer", OpenMLMetaFeatureTransformer(
-                    nan_ratio_feature_drop_threshold=0.25,
-                    imputer=SimpleImputer(strategy='mean'),
-                    scaler=StandardScaler(),
-                    expected_pca_variance=0.6,
-                    encoder=None
-                )),
-                ("general_transformer", GeneralPurposeEncoderTransformer(
-                    OneHotEncoder(),
-                    OneHotEncoder(),
-                    OneHotEncoder()
-                )),
-                ("estimator", DecisionTreeClassifier())
-            ]
 
         elif model_type == "pointwise_normalized_regression_bayes_search" \
                 or model_type == ModelType.POINTWISE_NORMALIZED_REGRESSION_BAYES_SEARCH:
@@ -601,6 +587,53 @@ class PipelineFactory:
                 'estimator__min_samples_leaf': Integer(1, 5),  # default=1
                 'estimator__max_features': Categorical([None, 'sqrt', 'log2']),  # default=None
             }
+            
+        elif model_type == "pairwise_classification_no_search" or model_type == ModelType.PAIRWISE_CLASSIFICATION_NO_SEARCH:
+            pipeline_steps = [
+                ("dataset_transformer", OpenMLMetaFeatureTransformer(
+                    nan_ratio_feature_drop_threshold=0.25,
+                    imputer=SimpleImputer(strategy='mean'),
+                    scaler=StandardScaler(),
+                    expected_pca_variance=0.6,
+                    encoder=None
+                )),
+                ("general_transformer", GeneralPurposeEncoderTransformer(
+                    OneHotEncoder(),
+                    OneHotEncoder(),
+                    OneHotEncoder()
+                )),
+                ("estimator", MultiOutputClassifier(DecisionTreeClassifier()))
+            ]
+            
+            as_pairwise = True
+            
+        elif model_type == "pairwise_classification_optuna_search" or model_type == ModelType.PAIRWISE_CLASSIFICATION_NO_SEARCH:
+            pipeline_steps = [
+                ("dataset_transformer", OpenMLMetaFeatureTransformer(
+                    nan_ratio_feature_drop_threshold=0.25,
+                    imputer=SimpleImputer(strategy='mean'),
+                    scaler=StandardScaler(),
+                    expected_pca_variance=0.6,
+                    encoder=None
+                )),
+                ("general_transformer", GeneralPurposeEncoderTransformer(
+                    OneHotEncoder(),
+                    OneHotEncoder(),
+                    OneHotEncoder()
+                )),
+                ("estimator", MultiOutputClassifier(DecisionTreeClassifier()))
+            ]
+            
+            param_grid = {
+                "general_transformer__model_encoder" : [BinaryEncoder(), OneHotEncoder()],
+                "general_transformer__tuning_encoder" : [BinaryEncoder()],
+                "general_transformer__scoring_encoder" : [BinaryEncoder(), OneHotEncoder()],
+                "estimator__estimator__max_depth" : [2, 10], 
+            }
+            
+            evaluation = EvaluationType.OPTUNA
+            as_pairwise = True
+            opt_iterations = 4
 
         else:
             raise ValueError(f"Unknown model type: {model_type}")
@@ -623,5 +656,7 @@ class PipelineFactory:
             bayes_n_points=bayes_n_points,
             bayes_cv=bayes_cv,
             bayes_n_jobs=bayes_n_jobs,
+            as_pairwise=as_pairwise,
+            opt_iterations=opt_iterations,
             **kwargs
         )

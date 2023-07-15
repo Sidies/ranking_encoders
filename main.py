@@ -43,7 +43,7 @@ def run_pipeline(args):
         verbose_level=1,
         evaluation=EvaluationType.CROSS_VALIDATION,
         X_test=test_df,
-        target=args.target
+        target=args.target,
     )
 
     pipeline.run()
@@ -52,7 +52,7 @@ def run_pipeline(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--pipeline_type', type=str, default='pointwise_normalized_regression_bayes_search', help='Type of pipeline to run')
+    parser.add_argument('--pipeline_type', type=str, default='pairwise_classification_optuna_search', help='Type of pipeline to run')
     parser.add_argument(
         '--train_dataset',
         type=str,

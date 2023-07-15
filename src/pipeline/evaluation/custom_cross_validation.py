@@ -79,7 +79,6 @@ def pairwise_custom_cross_validation(
         shuffle=True,
         cv=5,
         verbose=1,
-        as_pairwise=False
 ):
     """
     Like cross_validation, but with pairwise target.
@@ -88,7 +87,7 @@ def pairwise_custom_cross_validation(
     disable_tqdm = (verbose == 0)
     validation_performance_scores = {}
     for i in tqdm(range(cv), disable=disable_tqdm):         
-        X_train, X_test, y_train, y_test = custom_train_test_split(df, factors=factors, target=target, train_size=0.8, random_state=42)
+        X_train, X_test, y_train, y_test = custom_train_test_split(df, factors=factors, target=target, train_size=train_size, random_state=42)
 
         df_train = X_train.copy()
         df_train[target] = y_train
