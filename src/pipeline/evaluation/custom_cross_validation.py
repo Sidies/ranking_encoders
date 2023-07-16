@@ -53,14 +53,10 @@ def custom_cross_validation(
             y_pred = pd.Series(y_pred, index=y_test.index, name=target + "_pred")
 
             # ---- convert to rankings and evaluate
-            if target == "cv_score":
-                new_index = "encoder"
-                df_pred = pd.concat([X_test, y_test, y_pred], axis=1)
-                rankings_test = get_rankings(df_pred, factors=factors, new_index=new_index, target=target)
-                rankings_pred = get_rankings(df_pred, factors=factors, new_index=new_index, target=target + "_pred")
-            else:
-                rankings_test = pd.DataFrame(y_test)
-                rankings_pred = pd.DataFrame(y_pred)
+            new_index = "encoder"
+            df_pred = pd.concat([X_test, y_test, y_pred], axis=1)
+            rankings_test = get_rankings(df_pred, factors=factors, new_index=new_index, target=target)
+            rankings_pred = get_rankings(df_pred, factors=factors, new_index=new_index, target=target + "_pred")
 
             validation_performance_scores['validation_average_spearman_fold_' + str(i)] = average_spearman(
                 rankings_test,

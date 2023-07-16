@@ -660,7 +660,7 @@ class ModelPipeline:
         self._pipeline.fit(X_train, y_train)
 
         print('Evaluating pipeline with best parameters...')
-        validation_performance_scores = er.custom_cross_validation(
+        validation_performance_scores = custom_cross_validation(
             self._pipeline,
             self._df,
             self._split_factors,
@@ -714,30 +714,36 @@ class ModelPipeline:
                     print('Could not set parameter ' + param_name + ' to value ' + str(suggested_value) + '.')
         
             # perform the cross validation
-            if self._as_pairwise:
-                self._validation_performance_scores = pairwise_custom_cross_validation(
-                    self._pipeline,
-                    self._df,
-                    self._split_factors,
-                    self._target,
-                    cv=self._n_folds,
-                    verbose=self._verbose_level
-                )
-            else:
-                X_train, y_train = self._split_target(self._df, self._target)
+            try:
+                if self._as_pairwise:
+                    self._validation_performance_scores = pairwise_custom_cross_validation(
+                        self._pipeline,
+                        self._df,
+                        self._split_factors,
+                        self._target,
+                        cv=self._n_folds,
+                        verbose=self._verbose_level
+                    )
+                else:
+                    X_train, y_train = self._split_target(self._df, self._target)
 
-                self._pipeline.fit(X_train, y_train)
-                self._validation_performance_scores = custom_cross_validation(
-                    self._pipeline,
-                    self._df,
-                    self._split_factors,
-                    self._target,
-                    self._target_transformer,
-                    self._scorer,
-                    cv=self._n_folds,
-                    verbose=self._verbose_level
-                )
-            
+                    self._pipeline.fit(X_train, y_train)
+                    self._validation_performance_scores = custom_cross_validation(
+                        self._pipeline,
+                        self._df,
+                        self._split_factors,
+                        self._target,
+                        self._target_transformer,
+                        self._scorer,
+                        cv=self._n_folds,
+                        verbose=self._verbose_level
+                    )
+            except Exception as e:
+                print('Could not run cross validation with pipeline steps: ' + str(self._pipeline.named_steps))
+                # print error
+                print("Thrown error was:")
+                print(e)
+                
             error = round(np.mean(list(self._validation_performance_scores.values())), 4)
             
             # when returning multiple values optuna takes the first value as the objective value
@@ -755,28 +761,32 @@ class ModelPipeline:
             if best_params[i[1][0]] not in self._param_grid[i[1][0]]:
                 best_params[i[1][0]] = self._param_grid[i[1][0]][0]
         
-        self._pipeline.set_params(**best_params)
-        # perform the cross validation once to fit the pipeline with the new parameters
-        if self._as_pairwise:
-            pairwise_custom_cross_validation(
-                self._pipeline,
-                self._df,
-                self._split_factors,
-                self._target,
-                cv=1,
-                verbose=0
-            )
-        else:
-            custom_cross_validation(
-                self._pipeline,
-                self._df,
-                self._split_factors,
-                self._target,
-                self._target_transformer,
-                self._scorer,
-                cv=1,
-                verbose=0
-            )
+        try:
+            self._pipeline.set_params(**best_params)
+            # perform the cross validation once to fit the pipeline with the new parameters
+            if self._as_pairwise:
+                pairwise_custom_cross_validation(
+                    self._pipeline,
+                    self._df,
+                    self._split_factors,
+                    self._target,
+                    cv=1,
+                    verbose=0
+                )
+            else:
+                custom_cross_validation(
+                    self._pipeline,
+                    self._df,
+                    self._split_factors,
+                    self._target,
+                    self._target_transformer,
+                    self._scorer,
+                    cv=1,
+                    verbose=0
+                )
+        except Exception as e:
+            print('Fitting with the best parameters failed with:')
+            print(e)
         
         return study
     

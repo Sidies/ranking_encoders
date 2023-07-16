@@ -89,19 +89,13 @@ def custom_grid_search(
             pipeline.fit(X_train, y_train)
             y_pred = pd.Series(pipeline.predict(X_test), index=y_test.index, name=target + "_pred")
 
-            if target == "cv_score":
-                # calculate average spearman correlation
-                new_index = "encoder"
-                df_pred = pd.concat([X_test, y_test, y_pred], axis=1)
-                # ---- convert to rankings and evaluate
-                rankings_test = get_rankings(df_pred, factors=split_factors, new_index=new_index, target=target)
-                rankings_pred = get_rankings(df_pred, factors=split_factors, new_index=new_index, target=target + "_pred")
-            else:
-                if target_transformer is not None:
-                    _, y_pred = target_transformer.inverse_transform(X_test, y_pred)
+            if target_transformer is not None:
+                _, y_pred = target_transformer.inverse_transform(X_test, y_pred)
 
-                rankings_test = pd.DataFrame(y_test)
-                rankings_pred = pd.DataFrame(y_pred)
+            new_index = "encoder"
+            df_pred = pd.concat([X_test, y_test, y_pred], axis=1)
+            rankings_test = get_rankings(df_pred, factors=split_factors, new_index=new_index, target=target)
+            rankings_pred = get_rankings(df_pred, factors=split_factors, new_index=new_index, target=target + "_pred")
 
             error = average_spearman(rankings_test, rankings_pred)
 
