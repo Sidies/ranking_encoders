@@ -624,23 +624,23 @@ class PipelineFactory:
                 )),
                 ("estimator", MultiOutputClassifier(DecisionTreeClassifier()))
             ]
-            
+
             param_grid = {
                 'dataset_transformer__nan_ratio_feature_drop_threshold': [0.25, 0.5],
                 'dataset_transformer__expected_pca_variance': [0.25, 1.0],
-                'dataset_transformer__encoder': [None, OneHotEncoder(), BinaryEncoder()],
+                'dataset_transformer__encoder': [OneHotEncoder(), BinaryEncoder()],
                 'general_transformer__model_encoder': [OneHotEncoder(), BinaryEncoder(), OrdinalEncoder()],
                 'general_transformer__tuning_encoder': [OneHotEncoder(), BinaryEncoder(), OrdinalEncoder()],
                 'general_transformer__scoring_encoder': [OneHotEncoder(), BinaryEncoder(), OrdinalEncoder()],
-                # 'estimator__max_depth': [1, 500],  # default=None
-                'estimator__min_samples_split': [2, 5],  # default=2
-                'estimator__min_samples_leaf': [1, 5],  # default=1
-                'estimator__max_features': [None, 'sqrt', 'log2'],  # default=None
+                # 'estimator__estimator__max_depth': [1, 500],  # default=None
+                'estimator__estimator__min_samples_split': [2, 5],  # default=2
+                'estimator__estimator__min_samples_leaf': [1, 5],  # default=1
+                # 'estimator__estimator__max_features': [None, 'sqrt', 'log2'],  # default=None
             }
             
             evaluation = EvaluationType.OPTUNA
             as_pairwise = True
-            opt_iterations = 4
+            opt_iterations = 200
 
         else:
             raise ValueError(f"Unknown model type: {model_type}")
