@@ -640,7 +640,7 @@ class PipelineFactory:
             
             evaluation = EvaluationType.OPTUNA
             as_pairwise = True
-            opt_iterations = 200
+            opt_iterations = 80
 
         else:
             raise ValueError(f"Unknown model type: {model_type}")
