@@ -42,6 +42,7 @@ class ModelType(Enum):
     POINTWISE_CLASSIFICATION_BAYES_SEARCH = "pointwise_classification_bayes_search"
     POINTWISE_ORDINAL_REGRESSION_BAYES_SEARCH = "pointwise_ordinal_regression_bayes_search"
     PAIRWISE_CLASSIFICATION_NO_SEARCH = "pairwise_classification_no_search"
+    PAIRWISE_CLASSIFICATION_OPTUNA_SEARCH = "pairwise_classification_optuna_search"
 
 
 class PipelineFactory:
@@ -607,7 +608,7 @@ class PipelineFactory:
             
             as_pairwise = True
             
-        elif model_type == "pairwise_classification_optuna_search" or model_type == ModelType.PAIRWISE_CLASSIFICATION_NO_SEARCH:
+        elif model_type == "pairwise_classification_optuna_search" or model_type == ModelType.PAIRWISE_CLASSIFICATION_OPTUNA_SEARCH:
             pipeline_steps = [
                 ("dataset_transformer", OpenMLMetaFeatureTransformer(
                     nan_ratio_feature_drop_threshold=0.25,
@@ -625,10 +626,16 @@ class PipelineFactory:
             ]
             
             param_grid = {
-                "general_transformer__model_encoder" : [BinaryEncoder(), OneHotEncoder()],
-                "general_transformer__tuning_encoder" : [BinaryEncoder()],
-                "general_transformer__scoring_encoder" : [BinaryEncoder(), OneHotEncoder()],
-                "estimator__estimator__max_depth" : [2, 10], 
+                'dataset_transformer__nan_ratio_feature_drop_threshold': [0.25, 0.5],
+                'dataset_transformer__expected_pca_variance': [0.25, 1.0],
+                'dataset_transformer__encoder': [None, OneHotEncoder(), BinaryEncoder()],
+                'general_transformer__model_encoder': [OneHotEncoder(), BinaryEncoder(), OrdinalEncoder()],
+                'general_transformer__tuning_encoder': [OneHotEncoder(), BinaryEncoder(), OrdinalEncoder()],
+                'general_transformer__scoring_encoder': [OneHotEncoder(), BinaryEncoder(), OrdinalEncoder()],
+                # 'estimator__max_depth': [1, 500],  # default=None
+                'estimator__min_samples_split': [2, 5],  # default=2
+                'estimator__min_samples_leaf': [1, 5],  # default=1
+                'estimator__max_features': [None, 'sqrt', 'log2'],  # default=None
             }
             
             evaluation = EvaluationType.OPTUNA
