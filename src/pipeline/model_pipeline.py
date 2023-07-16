@@ -660,7 +660,7 @@ class ModelPipeline:
         self._pipeline.fit(X_train, y_train)
 
         print('Evaluating pipeline with best parameters...')
-        validation_performance_scores = er.custom_cross_validation(
+        validation_performance_scores = custom_cross_validation(
             self._pipeline,
             self._df,
             self._split_factors,
