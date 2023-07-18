@@ -301,7 +301,30 @@ class ModelPipeline:
                 print("  Best Score: {}".format(best_trial.value))
                 print("  Best Params: {}".format(best_trial.params))
                 # add to best params as dict
-                self.best_params = best_trial.params   
+                self.best_params = best_trial.params
+
+                print('Evaluating pipeline with best parameters...')
+                self._pipeline.set_params(**self.best_params)
+                self._validation_performance_scores = pairwise_custom_cross_validation(
+                    self._pipeline,
+                    self._df,
+                    self._split_factors,
+                    self._target,
+                    cv=self._n_folds,
+                    verbose=self._verbose_level
+                )
+
+                for metric, value in self._validation_performance_scores.items():
+                    if isinstance(value, float) or isinstance(value, int):
+                        output = metric + ': ' + (str(round(value, 4)))
+                    else:
+                        output = metric + ': ' + str(value)
+                    print("    " + output)
+
+                # print average of all folds
+                print("    average of all folds: "
+                      + str(round(np.mean(list(self._validation_performance_scores.values())), 4))
+                      + ' [std=' + str(round((np.std(list(self._validation_performance_scores.values()))), 4)) + ']')
                         
             else:
                 for metric, values in {**self._validation_performance_scores}.items():
