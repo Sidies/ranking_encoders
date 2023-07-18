@@ -46,7 +46,7 @@ class ModelType(Enum):
     PAIRWISE_CLASSIFICATION_BAYES_SEARCH = "pairwise_classification_bayes_search"
     LISTWISE_MULTIDIMENSIONAL_REGRESSION_NO_SEARCH = "listwise_multidimensional_regression_no_search"
     LISTWISE_MULTIDIMENSIONAL_REGRESSION_BAYES_SEARCH = "listwise_multidimensional_regression_bayes_search"
-    LISTWISE_DIMENSIONWISE_REGRESSION_NO_SEARCH = "listwise_regression_no_search"
+    LISTWISE_DIMENSIONWISE_REGRESSION_NO_SEARCH = "listwise_dimensionwise_regression_no_search"
 
 
 class PipelineFactory:
