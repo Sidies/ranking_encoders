@@ -22,7 +22,7 @@ from src.pipeline.evaluation.evaluation_utils import SpearmanScorer
 from src.pipeline.model_pipeline import ModelPipeline, EvaluationType
 from src.pipeline.pipeline_transformers import PoincareEmbedding, OpenMLMetaFeatureTransformer, \
     GeneralPurposeEncoderTransformer, ColumnKeeper, GroupwiseTargetTransformer, RankingBinarizerTransformer, \
-    get_column_names
+    TargetPivoterTransformer, get_column_names
 
 
 class ModelType(Enum):
@@ -44,6 +44,7 @@ class ModelType(Enum):
     PAIRWISE_CLASSIFICATION_NO_SEARCH = "pairwise_classification_no_search"
     PAIRWISE_CLASSIFICATION_OPTUNA_SEARCH = "pairwise_classification_optuna_search"
     PAIRWISE_CLASSIFICATION_BAYES_SEARCH = "pairwise_classification_bayes_search"
+    LISTWISE_MULTIDIMENSIONAL_REGRESSION_NO_SEARCH = "listwise_multidimensional_regression_no_search"
 
 
 class PipelineFactory:
@@ -682,6 +683,43 @@ class PipelineFactory:
                 'estimator__min_samples_leaf': Integer(1, 5),  # default=1
                 'estimator__max_features': Categorical([None, 'sqrt', 'log2']),  # default=None
             }
+
+        elif model_type == "listwise_multidimensional_regression_no_search" \
+                or model_type == ModelType.LISTWISE_MULTIDIMENSIONAL_REGRESSION_NO_SEARCH:
+            target_transformer = TargetPivoterTransformer(factors=split_factors, columns='encoder', target=target)
+
+            X_transformed, y_transformed = target_transformer.fit_transform(
+                train_df.drop(columns=target, axis=1),
+                train_df[target]
+            )
+            train_df = pd.concat([X_transformed, y_transformed], axis=1)
+
+            original_target = target
+            target = get_column_names(y_transformed)
+
+            scorer = SpearmanScorer(factors=split_factors, transformer=target_transformer)
+
+            pipeline_steps = [
+                ("keeper", ColumnKeeper(columns=[
+                    'dataset',
+                    'model',
+                    'tuning',
+                    'scoring'
+                ])),
+                ("dataset_transformer", OpenMLMetaFeatureTransformer(
+                    nan_ratio_feature_drop_threshold=0.25,
+                    imputer=SimpleImputer(strategy='mean'),
+                    scaler=StandardScaler(),
+                    expected_pca_variance=0.6,
+                    encoder=None
+                )),
+                ("general_transformer", GeneralPurposeEncoderTransformer(
+                    OneHotEncoder(),
+                    OneHotEncoder(),
+                    OneHotEncoder()
+                )),
+                ("estimator", DecisionTreeRegressor())
+            ]
 
         else:
             raise ValueError(f"Unknown model type: {model_type}")

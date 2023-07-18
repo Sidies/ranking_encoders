@@ -650,5 +650,5 @@ class TargetPivoterTransformer(BaseEstimator, TransformerMixin):
         df_new = df.melt(id_vars=self.factors, value_name=self.target).dropna(axis=0)
         columns = combine_into_list(self.factors, self.columns)
         X_new = df_new[columns]
-        y_new = df_new.drop(columns, axis=1)
+        y_new = df_new.drop(columns, axis=1).squeeze()
         return X_new, y_new
