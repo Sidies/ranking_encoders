@@ -213,10 +213,12 @@ class SpearmanScorer(_PredictScorer):
         """
         if len(y_true.shape) == 1:
             y_true = pd.Series(y_true, index=y_true.index, name=y_true.name)
-            y_pred = pd.Series(method_caller(estimator, "predict", X), index=y_true.index, name=y_true.name)
+            y_pred = pd.Series(method_caller(estimator, "predict", X), index=y_true.index)
+            y_pred.name = y_true.name
         else:
             y_true = pd.DataFrame(y_true, index=y_true.index, columns=y_true.columns)
-            y_pred = pd.DataFrame(method_caller(estimator, "predict", X), index=y_true.index, columns=y_true.columns)
+            y_pred = pd.DataFrame(method_caller(estimator, "predict", X), index=y_true.index)
+            y_pred.columns = y_true.columns
 
         if self.transformer is not None:
             X_true, y_true = self.transformer.inverse_transform(X, y_true)

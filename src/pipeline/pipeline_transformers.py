@@ -5,7 +5,7 @@ import copy
 from category_encoders.binary import BinaryEncoder
 from category_encoders import OneHotEncoder
 from category_encoders.target_encoder import TargetEncoder
-from sklearn.base import TransformerMixin, BaseEstimator
+from sklearn.base import TransformerMixin, BaseEstimator, RegressorMixin
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.impute import SimpleImputer
@@ -652,3 +652,26 @@ class TargetPivoterTransformer(BaseEstimator, TransformerMixin):
         X_new = df_new[columns]
         y_new = df_new.drop(columns, axis=1).squeeze()
         return X_new, y_new
+
+
+class DimensionWiseEstimator(BaseEstimator, RegressorMixin):
+    def __init__(self, estimator):
+        self.estimators = []
+        self.estimator = estimator
+        self._column_names = []
+
+    def fit(self, X, y):
+        self._column_names = list(get_column_names(y))
+        self.estimators = []
+        if get_number_of_columns(y) == 1:
+            self.estimators = [copy.copy(self.estimator).fit(X, y)]
+        else:
+            for i in range(y.shape[1]):
+                self.estimators.append(copy.copy(self.estimator).fit(X, y.iloc[:, i]))
+        return self
+
+    def predict(self, X):
+        predictions = []
+        for estimator in self.estimators:
+            predictions.append(pd.Series(estimator.predict(X)))
+        return pd.concat(predictions, axis=1, names=self._column_names)

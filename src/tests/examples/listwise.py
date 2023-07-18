@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 
-from pathlib import Path
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.tree import DecisionTreeRegressor
@@ -46,7 +45,8 @@ y_train = y_train.fillna(np.max(y_train))
 # y_train = y_train.fillna(0)
 
 dummy_pipe = Pipeline([("encoder", OneHotEncoder()), ("model", DecisionTreeRegressor(random_state=43))])
-y_pred = pd.DataFrame(dummy_pipe.fit(X_train, y_train).predict(X_test), columns=y_train.columns, index=X_test.index)
+y_pred = pd.DataFrame(dummy_pipe.fit(X_train, y_train).predict(X_test), index=X_test.index)
+y_pred.columns = y_train.columns
 
 # Evaluation
 df_pred = pd.merge(pd.concat([X_test, y_test], axis=1).melt(id_vars=factors, value_name="rank").dropna(axis=0),
