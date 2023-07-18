@@ -607,3 +607,48 @@ class TargetOneHotTransformer(BaseEstimator, TransformerMixin):
         if y is not None:
             y = self.onehot.inverse_transform(y.astype('category'))
         return X, y
+
+
+def combine_into_list(input1, input2):
+    result = []
+    if isinstance(input1, list):
+        result.extend(input1)
+    else:
+        result.append(input1)
+
+    if isinstance(input2, list):
+        result.extend(input2)
+    else:
+        result.append(input2)
+
+    return result
+
+
+class TargetPivoterTransformer(BaseEstimator, TransformerMixin):
+
+    def __init__(self, factors, columns, target):
+        self.factors = factors
+        self.columns = columns
+        self.target = target
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X, y=None):
+        df = pd.concat([X, y], axis=1)
+        df_new = pd.pivot(df, index=self.factors, columns=self.columns, values=self.target).reset_index()
+        X_new = df_new[self.factors]
+        y_new = df_new.drop(self.factors, axis=1)
+        y_new = y_new.fillna(np.max(y_new))
+        return X_new, y_new
+
+    def fit_transform(self, X, y=None, **fit_params):
+        return self.fit(X, y).transform(X, y)
+
+    def inverse_transform(self, X, y=None):
+        df = pd.concat([X, y], axis=1)
+        df_new = df.melt(id_vars=self.factors, value_name=self.target).dropna(axis=0)
+        columns = combine_into_list(self.factors, self.columns)
+        X_new = df_new[columns]
+        y_new = df_new.drop(columns, axis=1)
+        return X_new, y_new

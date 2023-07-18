@@ -219,8 +219,8 @@ class SpearmanScorer(_PredictScorer):
             y_pred = pd.DataFrame(method_caller(estimator, "predict", X), index=y_true.index, columns=y_true.columns)
 
         if self.transformer is not None:
-            _, y_true = self.transformer.inverse_transform(X, y_true)
-            _, y_pred = self.transformer.inverse_transform(X, y_pred)
+            X, y_true = self.transformer.inverse_transform(X, y_true)
+            X, y_pred = self.transformer.inverse_transform(X, y_pred)
 
         y_true = pd.Series(
             y_true,
