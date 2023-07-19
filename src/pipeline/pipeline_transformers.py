@@ -673,5 +673,7 @@ class DimensionWiseEstimator(BaseEstimator, RegressorMixin):
     def predict(self, X):
         predictions = []
         for estimator in self.estimators:
-            predictions.append(pd.Series(estimator.predict(X)))
-        return pd.concat(predictions, axis=1, names=self._column_names)
+            predictions.append(pd.Series(estimator.predict(X), index=X.index))
+        y_pred = pd.concat(predictions, axis=1)
+        y_pred.columns = self._column_names
+        return y_pred

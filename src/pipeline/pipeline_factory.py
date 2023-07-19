@@ -47,6 +47,7 @@ class ModelType(Enum):
     LISTWISE_MULTIDIMENSIONAL_REGRESSION_NO_SEARCH = "listwise_multidimensional_regression_no_search"
     LISTWISE_MULTIDIMENSIONAL_REGRESSION_BAYES_SEARCH = "listwise_multidimensional_regression_bayes_search"
     LISTWISE_DIMENSIONWISE_REGRESSION_NO_SEARCH = "listwise_dimensionwise_regression_no_search"
+    LISTWISE_DIMENSIONWISE_REGRESSION_BAYES_SEARCH = "listwise_dimensionwise_regression_bayes_search"
 
 
 class PipelineFactory:
@@ -776,6 +777,63 @@ class PipelineFactory:
                 )),
                 ("estimator", DimensionWiseEstimator(DecisionTreeRegressor()))
             ]
+
+        elif model_type == "listwise_dimensionwise_regression_bayes_search" \
+                or model_type == ModelType.LISTWISE_DIMENSIONWISE_REGRESSION_BAYES_SEARCH:
+            target_transformer = TargetPivoterTransformer(factors=split_factors, columns='encoder', target=target)
+
+            X_transformed, y_transformed = target_transformer.fit_transform(
+                train_df.drop(columns=target, axis=1),
+                train_df[target]
+            )
+            train_df = pd.concat([X_transformed, y_transformed], axis=1)
+
+            original_target = target
+            target = get_column_names(y_transformed)
+
+            scorer = SpearmanScorer(factors=split_factors, transformer=target_transformer)
+
+            pipeline_steps = [
+                ("keeper", ColumnKeeper(columns=[
+                    'dataset',
+                    'model',
+                    'tuning',
+                    'scoring'
+                ])),
+                ("dataset_transformer", OpenMLMetaFeatureTransformer(
+                    nan_ratio_feature_drop_threshold=0.25,
+                    imputer=SimpleImputer(strategy='mean'),
+                    scaler=StandardScaler(),
+                    expected_pca_variance=0.6,
+                    encoder=None
+                )),
+                ("general_transformer", GeneralPurposeEncoderTransformer(
+                    OneHotEncoder(),
+                    OneHotEncoder(),
+                    OneHotEncoder()
+                )),
+                ("estimator", DimensionWiseEstimator(DecisionTreeRegressor()))
+            ]
+
+            evaluation = EvaluationType.BAYES_SEARCH
+
+            bayes_n_iter = 200 if bayes_n_iter is None else bayes_n_iter
+            bayes_n_points = 4 if bayes_n_points is None else bayes_n_points
+            bayes_cv = 4 if bayes_cv is None else bayes_cv
+            bayes_n_jobs = -1 if bayes_n_jobs is None else bayes_n_jobs
+
+            param_grid = {
+                'dataset_transformer__nan_ratio_feature_drop_threshold': Categorical([0.25, 0.4, 0.45, 0.5]),
+                'dataset_transformer__expected_pca_variance': Real(0.25, 1.0),
+                'dataset_transformer__encoder': Categorical([None, OneHotEncoder()]),
+                'general_transformer__model_encoder': Categorical([OneHotEncoder(), OrdinalEncoder()]),
+                'general_transformer__tuning_encoder': Categorical([OneHotEncoder(), OrdinalEncoder()]),
+                'general_transformer__scoring_encoder': Categorical([OneHotEncoder(), OrdinalEncoder()]),
+                'estimator__estimator__max_depth': Categorical([1, 10, 50, 100, 250, 500, None]),  # default=None
+                'estimator__estimator__min_samples_split': Integer(2, 5),  # default=2
+                'estimator__estimator__min_samples_leaf': Integer(1, 5),  # default=1
+                'estimator__estimator__max_features': Categorical([None, 'sqrt', 'log2']),  # default=None
+            }
 
         else:
             raise ValueError(f"Unknown model type: {model_type}")
