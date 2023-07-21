@@ -608,7 +608,7 @@ class PipelineFactory:
                     OneHotEncoder(),
                     OneHotEncoder()
                 )),
-                ("estimator", MultiOutputClassifier(DecisionTreeClassifier()))
+                ("estimator", DecisionTreeClassifier())
             ]
             
             as_pairwise = True
@@ -627,7 +627,7 @@ class PipelineFactory:
                     OneHotEncoder(),
                     OneHotEncoder()
                 )),
-                ("estimator", MultiOutputClassifier(DecisionTreeClassifier()))
+                ("estimator", DecisionTreeClassifier())
             ]
 
             param_grid = {
