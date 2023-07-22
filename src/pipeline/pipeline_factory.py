@@ -43,7 +43,6 @@ class ModelType(Enum):
     POINTWISE_ORDINAL_REGRESSION_BAYES_SEARCH = "pointwise_ordinal_regression_bayes_search"
     PAIRWISE_CLASSIFICATION_NO_SEARCH = "pairwise_classification_no_search"
     PAIRWISE_CLASSIFICATION_OPTUNA_SEARCH = "pairwise_classification_optuna_search"
-    PAIRWISE_CLASSIFICATION_BAYES_SEARCH = "pairwise_classification_bayes_search"
     LISTWISE_MULTIDIMENSIONAL_REGRESSION_NO_SEARCH = "listwise_multidimensional_regression_no_search"
     LISTWISE_MULTIDIMENSIONAL_REGRESSION_BAYES_SEARCH = "listwise_multidimensional_regression_bayes_search"
     LISTWISE_DIMENSIONWISE_REGRESSION_NO_SEARCH = "listwise_dimensionwise_regression_no_search"
@@ -608,7 +607,7 @@ class PipelineFactory:
                     OneHotEncoder(),
                     OneHotEncoder()
                 )),
-                ("estimator", MultiOutputClassifier(DecisionTreeClassifier()))
+                ("estimator", DecisionTreeClassifier())
             ]
             
             as_pairwise = True
@@ -627,7 +626,7 @@ class PipelineFactory:
                     OneHotEncoder(),
                     OneHotEncoder()
                 )),
-                ("estimator", MultiOutputClassifier(DecisionTreeClassifier()))
+                ("estimator", DecisionTreeClassifier())
             ]
 
             param_grid = {
@@ -638,8 +637,8 @@ class PipelineFactory:
                 'general_transformer__tuning_encoder': [OneHotEncoder(), BinaryEncoder(), OrdinalEncoder()],
                 'general_transformer__scoring_encoder': [OneHotEncoder(), BinaryEncoder(), OrdinalEncoder()],
                 # 'estimator__estimator__max_depth': [1, 500],  # default=None
-                'estimator__estimator__min_samples_split': [2, 5],  # default=2
-                'estimator__estimator__min_samples_leaf': [1, 5],  # default=1
+                'estimator__min_samples_split': [2, 5],  # default=2
+                'estimator__min_samples_leaf': [1, 5],  # default=1
                 # 'estimator__estimator__max_features': [None, 'sqrt', 'log2'],  # default=None
             }
             
