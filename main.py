@@ -7,6 +7,7 @@ import argparse
 from src import configuration as config
 from src.pipeline.model_pipeline import EvaluationType
 from src.pipeline.pipeline_factory import PipelineFactory
+from src.pipeline import neural_network_pipeline
 
 
 def run_pipeline(args):
@@ -47,6 +48,28 @@ def run_pipeline(args):
     )
 
     pipeline.run()
+    
+    
+def run_neural_network(args):
+    
+    # load the data
+    train_df_path = config.DATA_RAW_DIR / args.train_dataset
+    train_df = config.load_dataset(train_df_path)
+    if args.y_train_dataset != '':
+        y_train_df_path = config.DATA_RAW_DIR / args.y_train_dataset
+        y_train_df = config.load_dataset(y_train_df_path)
+
+        # merge the X and y dataframes
+        if args.target in train_df.columns:
+            train_df = train_df.drop(columns=[args.target])
+        train_df = pd.concat([train_df, y_train_df], axis=1)
+
+    test_df = None
+    if args.test_dataset != '':
+        test_df_path = config.DATA_RAW_DIR / args.test_dataset
+        test_df = config.load_dataset(test_df_path)
+    
+    neural_network_pipeline.pipeline(train_df, test_df, args.epochs)
 
 
 if __name__ == '__main__':
@@ -62,7 +85,11 @@ if __name__ == '__main__':
     parser.add_argument('--test_dataset', type=str, default='', help='Dataset name to use for testing')
     parser.add_argument('--y_train_dataset', type=str, default='', help='Dataset name to use for training labels')
     parser.add_argument('--target', type=str, default='rank', help='Target column name')
-
+    parser.add_argument('--as_neural_network', type=bool, default=True, help='Whether to run as neural network')
+    parser.add_argument('--epochs', type=int, default=10, help='Number of epochs to run')
     args = parser.parse_args()
 
-    run_pipeline(args)
+    if args.as_neural_network:
+        run_neural_network(args)
+    else:
+        run_pipeline(args)
