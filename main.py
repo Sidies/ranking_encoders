@@ -86,7 +86,7 @@ if __name__ == '__main__':
     parser.add_argument('--y_train_dataset', type=str, default='', help='Dataset name to use for training labels')
     parser.add_argument('--target', type=str, default='rank', help='Target column name')
     parser.add_argument('--as_neural_network', type=bool, default=True, help='Whether to run as neural network')
-    parser.add_argument('--epochs', type=int, default=10, help='Number of epochs to run')
+    parser.add_argument('--epochs', type=int, default=200, help='Number of epochs to run')
     args = parser.parse_args()
 
     if args.as_neural_network:
