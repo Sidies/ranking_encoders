@@ -255,7 +255,7 @@ class ModelPipeline:
             )
             
         elif self._evaluation == "optuna" or self._evaluation == EvaluationType.OPTUNA:
-            study = self._do_optuna_search()
+            study, best_params = self._do_optuna_search()
 
         else:
             raise Exception(f"Unknown evaluation type: {self._evaluation}")
@@ -291,15 +291,9 @@ class ModelPipeline:
             elif self._evaluation == "optuna" or self._evaluation == EvaluationType.OPTUNA:
                 self.study = study
                 best_trial = study.best_trial
-                self.best_params_ = {}
-                best_params = best_trial.params
-                # reset the encoder mapping
-                for i in enumerate(self._param_grid.items()):
-                    if best_params[i[1][0]] not in self._param_grid[i[1][0]]:
-                        best_params[i[1][0]] = self._param_grid[i[1][0]][0]
                 
                 print("  Best Score: {}".format(best_trial.value))
-                print("  Best Params: {}".format(best_trial.params))
+                print("  Best Params: {}".format(best_params))
                 # add to best params as dict
                 self.best_params = best_trial.params
 
@@ -761,14 +755,15 @@ class ModelPipeline:
                         cv=self._n_folds,
                         verbose=self._verbose_level
                     )
+                error = round(np.mean(list(self._validation_performance_scores.values())), 4)
+                
             except Exception as e:
                 print('Could not run cross validation with pipeline steps: ' + str(self._pipeline.named_steps))
                 # print error
                 print("Thrown error was:")
                 print(e)
-                
-            error = round(np.mean(list(self._validation_performance_scores.values())), 4)
-            
+                error = 0               
+
             # when returning multiple values optuna takes the first value as the objective value
             return error
         
@@ -781,7 +776,8 @@ class ModelPipeline:
         best_params = trial_with_highest_value.params
         # reset the encoder mapping
         for i in enumerate(self._param_grid.items()):
-            if best_params[i[1][0]] not in self._param_grid[i[1][0]]:
+            # reset only if the parameter is an object
+            if not isinstance(self._param_grid[i[1][0]][0], (int, float)) and best_params[i[1][0]] not in self._param_grid[i[1][0]]:
                 best_params[i[1][0]] = self._param_grid[i[1][0]][0]
         
         try:
@@ -811,7 +807,7 @@ class ModelPipeline:
             print('Fitting with the best parameters failed with:')
             print(e)
         
-        return study
+        return study, best_params
     
 
     def _split_target(self, df, target):

@@ -636,15 +636,16 @@ class PipelineFactory:
                 'general_transformer__model_encoder': [OneHotEncoder(), BinaryEncoder(), OrdinalEncoder()],
                 'general_transformer__tuning_encoder': [OneHotEncoder(), BinaryEncoder(), OrdinalEncoder()],
                 'general_transformer__scoring_encoder': [OneHotEncoder(), BinaryEncoder(), OrdinalEncoder()],
-                # 'estimator__estimator__max_depth': [1, 500],  # default=None
-                'estimator__min_samples_split': [2, 5],  # default=2
-                'estimator__min_samples_leaf': [1, 5],  # default=1
-                # 'estimator__estimator__max_features': [None, 'sqrt', 'log2'],  # default=None
+                 #'estimator__max_depth': [1, 1500],  # default=None
+                # 'estimator__min_samples_split': [2, 5],  # default=2
+                # 'estimator__min_samples_leaf': [1, 5],  # default=1
+                # 'estimator__max_features': [None, 'sqrt', 'log2'],  # default=None
+                # 'estimator__criterion': ['gini', 'entropy', 'log_loss'],  # default='gini
+                # 'estimator__ccp_alpha': [0.0, 1],  # default=0.0
             }
             
             evaluation = EvaluationType.OPTUNA
             as_pairwise = True
-            opt_iterations = 80
 
         elif model_type == "listwise_multidimensional_regression_no_search" \
                 or model_type == ModelType.LISTWISE_MULTIDIMENSIONAL_REGRESSION_NO_SEARCH:
