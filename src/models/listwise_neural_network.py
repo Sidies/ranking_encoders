@@ -208,3 +208,46 @@ class CustomRanking(tfrs.tasks.Ranking):
         config = super().get_config()
         return config
     
+def revert_target(original_data, transformed_data, prediction):
+    # transform data into dictionary
+    transformed_data = {
+        col: list(transformed_data)[0][col].numpy() for col in list(transformed_data)[0]
+    }
+
+    # revert factor concatenation
+    split_factors = {'dataset': [], 'model': [], 'tuning': [], 'scoring': []}
+    for feature in transformed_data['features']:
+        split_factor = feature.split()
+        split_factors['dataset'].append(split_factor[0])
+        split_factors['model'].append(split_factor[1])
+        split_factors['tuning'].append(split_factor[2])
+        split_factors['scoring'].append(split_factor[3])
+    transformed_data.pop('features')
+    transformed_data = {**split_factors, **transformed_data}
+
+    # zip encoders and rankings together
+    reverted_data = {'dataset': [], 'model': [], 'tuning': [], 'scoring': [], 'encoder': [], 'rank_pred': []}
+    for row_index in range(len(next(iter(transformed_data.values())))):
+        row = {key: transformed_data[key][row_index] for key in transformed_data}
+        encoder_rankings = zip(row['encoder'], prediction[row_index])
+        for encoder, rank in encoder_rankings:
+            reverted_data['dataset'].append(row['dataset'].decode('utf-8'))
+            reverted_data['model'].append(row['model'].decode('utf-8'))
+            reverted_data['tuning'].append(row['tuning'].decode('utf-8'))
+            reverted_data['scoring'].append(row['scoring'].decode('utf-8'))
+            reverted_data['encoder'].append(encoder.decode('utf-8'))
+            reverted_data['rank_pred'].append(rank[0])
+    reverted_data = pd.DataFrame(reverted_data)
+
+    reverted_data[['dataset', 'model', 'tuning', 'scoring', 'encoder']] = reverted_data[['dataset', 'model', 'tuning', 'scoring', 'encoder']].astype(original_data[[
+        'dataset', 'model', 'tuning', 'scoring', 'encoder'
+    ]].dtypes)
+
+    reverted_data = original_data.merge(
+        reverted_data, 
+        on=['dataset', 'model', 'tuning', 'scoring', 'encoder'],
+        how='outer',
+    )
+    reverted_data.index = original_data.index
+
+    return reverted_data['rank_pred'].fillna(0)

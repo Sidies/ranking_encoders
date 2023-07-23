@@ -20,6 +20,7 @@ ROOT_DIR = Path(__file__).parent.parent
 DATA_DIR = ROOT_DIR / "data"
 DATA_RAW_DIR = DATA_DIR / "raw"
 FIGURE_DIR = ROOT_DIR / "reports/figures"
+DATA_PROCESSED_DIR = DATA_DIR / "processed"
 
 
 def print_divider_line():
