@@ -517,7 +517,7 @@ class ModelPipeline:
         predictions = self._pipeline.predict(data)
 
         # save the predictions
-        path = config.DATA_DIR / 'processed/pairwise_tyrell_prediction.csv'
+        path = config.DATA_DIR / 'processed/tyrell_prediction.csv'
         print("Saving predictions to {}".format(path)) if self._verbose_level > 0 else None
         pd.DataFrame(predictions).to_csv(path, index=False, header=False)
 
