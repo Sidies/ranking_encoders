@@ -1,0 +1,12 @@
+Creating pipeline ...
+Starting pipeline using method: EvaluationType.CROSS_VALIDATION
+Finished running the pipeline
+Evaluation metrics:
+    validation_average_spearman_fold_0: 0.6354
+    validation_average_spearman_fold_1: 0.6061
+    validation_average_spearman_fold_2: 0.618
+    validation_average_spearman_fold_3: 0.6298
+    validation_average_spearman_fold_4: 0.6323
+    average of all folds: 0.6243 [std=0.0108]
+
+runtime: 0:00:51 [51s]
