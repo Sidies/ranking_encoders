@@ -69,7 +69,7 @@ pip install -r requirements.txt
 
 ## Usage
 For running the pipeline of this project you first have to make sure that the training set you want to use is in the required `data/raw` folder. By default a dataset named `dataset_train.csv` is expected. If you want to use a different dataset, you have to use the `--train_dataset` parameter when running the pipeline. You may also use the `--test_dataset` parameter if you have a test set that you want to get predictions from. If the pipeline is started with this parameter, the pipeline will save the predictions into the `data/processed` folder. In case that the training dataset doesn't include the target column a seperate target file is required. With the `--y_train_dataset` parameter you may include this file in the pipeline. The pipeline will then use this file as the target column for the training set. 
-It is also possible to run the pipeline as a listwise Neural Network. When running the `main.py` file this is the default setting. If you want to use the conventional pipeline set `--as_neural_network` to `False`.
+It is also possible to run the pipeline as a listwise Neural Network. When running the `main.py` file set the `--as_neural_network` flag. This will start the execution with the Neural Network.
 
 The `main.py` file is the entry point for the project. To run the pipeline with the default dataset and no test set use the following command:
 ```
@@ -90,7 +90,7 @@ Parameter overview for main.py
 --test_dataset: The name of the test dataset. Only if this parameter is set a prediction.csv file will be created.
 --y_train_dataset: The name of the target dataset. Only use this parameter if your training dataset doesn't include the target column.
 --target: The name of the target column. Default is cv_score
---as_neural_network: If set to True the pipeline will run as a listwise neural network. Default is True
+--as_neural_network: If this flag is set the pipeline will run as a listwise neural network.
 --epochs: The number of epochs for the neural network. Default is 200
 ```
 
