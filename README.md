@@ -109,7 +109,7 @@ py main.py --dataset [your_dataset_name] --test_dataset [your_test_dataset_name]
 
 Parameter overview for main.py
 ```
---pipeline_type: The type of pipeline to run. Possible values are regre_baseline,
+--pipeline_type: The type of pipeline to run. Possible values are can be found in the list above. Eg. "regre_baseline"
 --train_dataset: The name of the training dataset. Default is dataset_train.csv
 --test_dataset: The name of the test dataset. Only if this parameter is set a prediction.csv file will be created.
 --y_train_dataset: The name of the target dataset. Only use this parameter if your training dataset doesn't include the target column.
