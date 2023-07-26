@@ -45,6 +45,8 @@ def run_pipeline(args):
         evaluation=EvaluationType.CROSS_VALIDATION,
         X_test=test_df,
         target=args.target,
+        opt_iterations=args.opt_iterations,
+        n_folds=5
     )
 
     pipeline.run()
@@ -85,8 +87,9 @@ if __name__ == '__main__':
     parser.add_argument('--test_dataset', type=str, default='', help='Dataset name to use for testing')
     parser.add_argument('--y_train_dataset', type=str, default='', help='Dataset name to use for training labels')
     parser.add_argument('--target', type=str, default='rank', help='Target column name')
-    parser.add_argument('--as_neural_network', action='store_false', help='Whether to run as neural network')
+    parser.add_argument('--as_neural_network', action='store_true', help='Whether to run as neural network')
     parser.add_argument('--epochs', type=int, default=200, help='Number of epochs to run')
+    parser.add_argument('--opt_iterations', type=int, default=100, help='Number of optuna iterations to run')
     args = parser.parse_args()
 
     if args.as_neural_network:

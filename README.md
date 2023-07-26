@@ -68,8 +68,32 @@ pip install -r requirements.txt
 ```
 
 ## Usage
-For running the pipeline of this project you first have to make sure that the training set you want to use is in the required `data/raw` folder. By default a dataset named `dataset_train.csv` is expected. If you want to use a different dataset, you have to use the `--train_dataset` parameter when running the pipeline. You may also use the `--test_dataset` parameter if you have a test set that you want to get predictions from. If the pipeline is started with this parameter, the pipeline will save the predictions into the `data/processed` folder. In case that the training dataset doesn't include the target column a seperate target file is required. With the `--y_train_dataset` parameter you may include this file in the pipeline. The pipeline will then use this file as the target column for the training set. 
+For running the pipeline of this project you first have to make sure that the training set you want to use is in the required `data/raw` folder. By default a dataset named `dataset_train.csv` is expected. If you want to use a different dataset, you have to use the `--train_dataset` parameter when running the pipeline. You may also use the `--test_dataset` parameter if you have a test set that you want to get predictions from. If the pipeline is started with this parameter, the pipeline will save the predictions into the `data/processed` folder. In case that the training dataset doesn't include the target column a seperate target file is required. With the `--y_train_dataset` parameter you may include this file in the pipeline. The pipeline will then use this file as the target column for the training set. \
 It is also possible to run the pipeline as a listwise Neural Network. When running the `main.py` file set the `--as_neural_network` flag. This will start the execution with the Neural Network.
+
+Another important parameters is the `--pipeline_type` parameter. You can find more information about the implementation of these pipelines in the `PipelineFactory` class found in the __src/pipeline/__ folder. This parameter defines the type of pipeline that will be executed. The following pipeline types are available:
+* "regre_baseline"
+* "class_baseline"
+* "linear_regression"
+* "regre_preprocessed"
+* "regre_test"
+* "regre_no_search"
+* "regre_bayes_search"
+* "pointwise_regression_no_search"
+* "pointwise_normalized_regression_no_search"
+* "pointwise_classification_no_search"
+* "pointwise_ordinal_regression_no_search"
+* "pointwise_regression_grid_search"
+* "pointwise_normalized_regression_bayes_search"
+* "pointwise_classification_bayes_search"
+* "pointwise_ordinal_regression_bayes_search"
+* "pairwise_classification_no_search"
+* "pairwise_classification_optuna_search"
+* "listwise_multidimensional_regression_no_search"
+* "listwise_multidimensional_regression_bayes_search"
+* "listwise_dimensionwise_regression_no_search"
+* "listwise_dimensionwise_regression_bayes_search"
+
 
 The `main.py` file is the entry point for the project. To run the pipeline with the default dataset and no test set use the following command:
 ```
