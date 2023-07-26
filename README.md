@@ -161,10 +161,7 @@ Parameter overview for main.py
     │   │
     │   ├── tests          <- Scripts to test other python modules in the project
     │   │
-    │   └── visualization  <- Scripts to create exploratory and results oriented visualizations
-    │       
-    │
-    └── tox.ini            <- tox file with settings for running tox; see tox.readthedocs.io
+    │   └── visualization  <- Scripts to create exploratory and results oriented 
 
 
 --------
